@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { getConfigManager } from '../../config/manager.js';
+import { getDatabaseManager } from '../../db/database-manager.js';
 import { getConnectionManager } from '../../db/connection-manager.js';
 import { getDatabaseDiscovery } from '../../db/discovery.js';
+import { getMasterKey } from '../../config/master-key.js';
 import {
   AddConnectionRequestSchema,
   UpdateConnectionRequestSchema,
@@ -11,7 +12,7 @@ import {
 } from '../../types/index.js';
 
 const router = Router();
-const configManager = getConfigManager();
+const dbManager = getDatabaseManager();
 const connectionManager = getConnectionManager();
 const databaseDiscovery = getDatabaseDiscovery();
 
@@ -21,10 +22,9 @@ const databaseDiscovery = getDatabaseDiscovery();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
     const connections: ConnectionListItem[] = [];
 
-    for (const conn of Object.values(config.connections)) {
+    for (const conn of dbManager.getAllConnections()) {
       connections.push({
         id: conn.id,
         name: conn.name,
@@ -81,7 +81,8 @@ router.post('/', async (req: Request, res: Response) => {
     );
 
     // Add connection with discovered databases
-    const connectionId = await configManager.addConnection(request, testResult.databases);
+    const masterKey = getMasterKey();
+    const connectionId = dbManager.addConnection(request, masterKey, testResult.databases);
 
     res.json({
       success: true,
@@ -105,8 +106,7 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
-    const connection = config.connections[req.params.id];
+    const connection = dbManager.getConnection(req.params.id);
 
     if (!connection) {
       res.status(404).json({
@@ -154,7 +154,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    await configManager.updateConnection(req.params.id, validation.data);
+    const masterKey = getMasterKey();
+    dbManager.updateConnection(req.params.id, validation.data, masterKey);
 
     // If connection config changed, recreate pool
     if (validation.data.host || validation.data.port || validation.data.user || validation.data.password) {
@@ -182,7 +183,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     await connectionManager.closePool(req.params.id);
-    await configManager.removeConnection(req.params.id);
+    dbManager.deleteConnection(req.params.id);
 
     res.json({
       success: true,
@@ -204,8 +205,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
  */
 router.post('/:id/test', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
-    const connection = config.connections[req.params.id];
+    const connection = dbManager.getConnection(req.params.id);
 
     if (!connection) {
       res.status(404).json({
@@ -215,7 +215,8 @@ router.post('/:id/test', async (req: Request, res: Response) => {
       return;
     }
 
-    const password = configManager.getDecryptedPassword(req.params.id);
+    const masterKey = getMasterKey();
+    const password = dbManager.getDecryptedPassword(req.params.id, masterKey);
     const testResult = await connectionManager.testConnection(connection, password);
 
     const result: TestConnectionResult = {
@@ -242,8 +243,7 @@ router.post('/:id/test', async (req: Request, res: Response) => {
  */
 router.post('/:id/activate', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
-    const connection = config.connections[req.params.id];
+    const connection = dbManager.getConnection(req.params.id);
 
     if (!connection) {
       res.status(404).json({
@@ -253,7 +253,7 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
       return;
     }
 
-    await configManager.switchConnection(req.params.id);
+    dbManager.switchConnection(req.params.id);
 
     res.json({
       success: true,
@@ -277,8 +277,7 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
  */
 router.post('/:id/discover', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
-    const connection = config.connections[req.params.id];
+    const connection = dbManager.getConnection(req.params.id);
 
     if (!connection) {
       res.status(404).json({
@@ -292,7 +291,7 @@ router.post('/:id/discover', async (req: Request, res: Response) => {
     const discovered = await databaseDiscovery.discoverDatabases(pool);
 
     const existing = Object.keys(connection.databases);
-    const added = await configManager.addDatabases(req.params.id, discovered);
+    const added = dbManager.addDatabases(req.params.id, discovered);
 
     const result: DiscoverDatabasesResult = {
       discovered,

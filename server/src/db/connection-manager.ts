@@ -1,11 +1,13 @@
 import mysql from 'mysql2/promise';
 import type { Pool, PoolOptions } from 'mysql2/promise';
 import type { ConnectionConfig } from '../types/index.js';
-import { getConfigManager } from '../config/manager.js';
+import { getDatabaseManager } from './database-manager.js';
+import { getMasterKey } from '../config/master-key.js';
 
 export class ConnectionManager {
   private pools: Map<string, Pool> = new Map();
-  private configManager = getConfigManager();
+  private dbManager = getDatabaseManager();
+  private masterKey = getMasterKey();
 
   /**
    * Get or create a connection pool for a specific connection
@@ -17,15 +19,14 @@ export class ConnectionManager {
     }
 
     // Get connection config
-    const config = this.configManager.getConfig();
-    const connection = config.connections[connectionId];
+    const connection = this.dbManager.getConnection(connectionId);
 
     if (!connection) {
       throw new Error(`Connection ${connectionId} not found`);
     }
 
     // Decrypt password
-    const password = this.configManager.getDecryptedPassword(connectionId);
+    const password = this.dbManager.getDecryptedPassword(connectionId, this.masterKey);
 
     // Create pool options
     const poolOptions: PoolOptions = {
@@ -63,26 +64,21 @@ export class ConnectionManager {
    * Get the pool for the currently active connection
    */
   async getActivePool(): Promise<{ pool: Pool; connectionId: string; database: string }> {
-    const config = this.configManager.getConfig();
+    const connection = this.dbManager.getActiveConnection();
 
-    if (!config.activeConnection) {
-      throw new Error('No active connection configured');
-    }
-
-    const connection = config.connections[config.activeConnection];
     if (!connection) {
-      throw new Error('Active connection not found');
+      throw new Error('No active connection configured');
     }
 
     if (!connection.activeDatabase) {
       throw new Error('No active database selected');
     }
 
-    const pool = await this.getPool(config.activeConnection);
+    const pool = await this.getPool(connection.id);
 
     return {
       pool,
-      connectionId: config.activeConnection,
+      connectionId: connection.id,
       database: connection.activeDatabase,
     };
   }

@@ -1,10 +1,18 @@
 import type { Request, Response, NextFunction } from 'express';
-import { getConfigManager } from '../../config/manager.js';
-import { constantTimeCompare } from '../../config/crypto.js';
+import { getDatabaseManager } from '../../db/database-manager.js';
+
+// Extend Request to include apiKeyId
+declare global {
+  namespace Express {
+    interface Request {
+      apiKeyId?: string;
+    }
+  }
+}
 
 /**
  * Authentication middleware
- * Verifies Bearer token in Authorization header
+ * Verifies Bearer token in Authorization header against API keys in database
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   try {
@@ -30,18 +38,20 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
     const token = parts[1];
 
-    // Get server token from config
-    const configManager = getConfigManager();
-    const config = configManager.getConfig();
+    // Verify API key in database
+    const dbManager = getDatabaseManager();
+    const apiKey = dbManager.verifyApiKey(token);
 
-    // Constant-time comparison to prevent timing attacks
-    if (!constantTimeCompare(token, config.serverToken)) {
+    if (!apiKey) {
       res.status(401).json({
         success: false,
-        error: 'Invalid authentication token',
+        error: 'Invalid or inactive API key',
       });
       return;
     }
+
+    // Store API key ID in request for logging
+    req.apiKeyId = apiKey.id;
 
     // Token is valid, proceed
     next();

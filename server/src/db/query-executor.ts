@@ -2,12 +2,12 @@ import type { Pool, PoolConnection, FieldPacket, RowDataPacket } from 'mysql2/pr
 import type { Permissions, QueryResult } from '../types/index.js';
 import { getPermissionValidator } from './permissions.js';
 import { getConnectionManager } from './connection-manager.js';
-import { getConfigManager } from '../config/manager.js';
+import { getDatabaseManager } from './database-manager.js';
 
 export class QueryExecutor {
   private permissionValidator = getPermissionValidator();
   private connectionManager = getConnectionManager();
-  private configManager = getConfigManager();
+  private dbManager = getDatabaseManager();
 
   /**
    * Execute a SQL query with permission checking and transaction support
@@ -19,9 +19,7 @@ export class QueryExecutor {
     const { pool, connectionId, database } = await this.connectionManager.getActivePool();
 
     // Get permissions for the active database
-    const config = this.configManager.getConfig();
-    const connection = config.connections[connectionId];
-    const dbConfig = connection.databases[database];
+    const dbConfig = this.dbManager.getDatabaseConfig(connectionId, database);
 
     if (!dbConfig) {
       throw new Error(`Database ${database} not found in connection configuration`);
@@ -172,9 +170,7 @@ export class QueryExecutor {
 
     if (!skipPermissions) {
       // Get permissions
-      const config = this.configManager.getConfig();
-      const connection = config.connections[connectionId];
-      const dbConfig = connection.databases[database];
+      const dbConfig = this.dbManager.getDatabaseConfig(connectionId, database);
 
       if (!dbConfig) {
         throw new Error(`Database ${database} not found in connection configuration`);

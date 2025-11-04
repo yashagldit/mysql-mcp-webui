@@ -1,9 +1,9 @@
 import { Router, type Request, type Response } from 'express';
-import { getConfigManager } from '../../config/manager.js';
-import type { ServerSettings, ActiveState, HealthStatus } from '../../types/index.js';
+import { getDatabaseManager } from '../../db/database-manager.js';
+import type { ActiveState, HealthStatus } from '../../types/index.js';
 
 const router = Router();
-const configManager = getConfigManager();
+const dbManager = getDatabaseManager();
 const serverStartTime = Date.now();
 
 /**
@@ -12,12 +12,12 @@ const serverStartTime = Date.now();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
+    const transport = dbManager.getSetting('transport') || 'http';
+    const httpPort = dbManager.getSetting('httpPort') || '3000';
 
-    const settings: ServerSettings = {
-      serverToken: config.serverToken,
-      transport: config.transport,
-      httpPort: config.httpPort,
+    const settings = {
+      transport,
+      httpPort: parseInt(httpPort),
       nodeVersion: process.version,
     };
 
@@ -34,50 +34,23 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/settings/token/rotate
- * Rotate authentication token
- */
-router.post('/token/rotate', async (req: Request, res: Response) => {
-  try {
-    const newToken = await configManager.rotateToken();
-
-    res.json({
-      success: true,
-      data: {
-        newToken,
-        message: 'Token rotated successfully. Update your MCP client configuration with the new token.',
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
-
-/**
  * GET /api/active
  * Get current active state
  */
 router.get('/active', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
-
     const state: ActiveState = {};
 
-    if (config.activeConnection) {
-      const connection = config.connections[config.activeConnection];
-      if (connection) {
-        state.connectionId = connection.id;
-        state.connectionName = connection.name;
-        state.database = connection.activeDatabase;
+    const connection = dbManager.getActiveConnection();
+    if (connection) {
+      state.connectionId = connection.id;
+      state.connectionName = connection.name;
+      state.database = connection.activeDatabase;
 
-        if (connection.activeDatabase) {
-          const dbConfig = connection.databases[connection.activeDatabase];
-          if (dbConfig) {
-            state.permissions = dbConfig.permissions;
-          }
+      if (connection.activeDatabase) {
+        const dbConfig = connection.databases[connection.activeDatabase];
+        if (dbConfig) {
+          state.permissions = dbConfig.permissions;
         }
       }
     }
@@ -100,8 +73,6 @@ router.get('/active', async (req: Request, res: Response) => {
  */
 router.get('/health', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
-
     const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
 
     const health: HealthStatus = {
@@ -109,12 +80,10 @@ router.get('/health', async (req: Request, res: Response) => {
       uptime,
     };
 
-    if (config.activeConnection) {
-      const connection = config.connections[config.activeConnection];
-      if (connection) {
-        health.activeConnection = connection.name;
-        health.activeDatabase = connection.activeDatabase;
-      }
+    const connection = dbManager.getActiveConnection();
+    if (connection) {
+      health.activeConnection = connection.name;
+      health.activeDatabase = connection.activeDatabase;
     }
 
     res.json(health);

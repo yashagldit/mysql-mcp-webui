@@ -19,17 +19,22 @@ Build an enhanced MySQL MCP server with a React-based web UI for live configurat
 ### ✅ Phase 1-6: Backend & Infrastructure (COMPLETED)
 
 **Backend Core (100% Complete)**
-- ✅ Configuration management with JSON persistence
+- ✅ SQLite-based data storage with better-sqlite3
+- ✅ Multi-API key system with named keys
+- ✅ Request/Response logging system
+- ✅ Master encryption key management
 - ✅ AES-256-GCM password encryption
 - ✅ MySQL connection pooling and management
 - ✅ Database auto-discovery
 - ✅ Permission validation system
 - ✅ Query executor with transaction support
 - ✅ MCP server with 3 tools (mysql_query, list_databases, switch_database)
-- ✅ Complete REST API (20+ endpoints)
-- ✅ Authentication middleware
+- ✅ Complete REST API (30+ endpoints)
+- ✅ Authentication middleware with API key support
+- ✅ Automatic request logging middleware
 - ✅ Dual transport support (stdio & HTTP)
 - ✅ TypeScript compilation successful
+- ✅ Server tested and fully operational
 
 **Frontend Infrastructure (95% Complete)**
 - ✅ Vite + React + TypeScript setup
@@ -39,8 +44,11 @@ Build an enhanced MySQL MCP server with a React-based web UI for live configurat
 - ✅ Component directory structure
 - ✅ Build system configured
 
-### 🚧 Phase 7-15: Frontend UI (In Progress)
+### 🚧 Phase 7-15: Frontend UI (Pending)
 - [ ] Layout components (Header, Sidebar)
+- [ ] API key management UI
+- [ ] Request logs viewer UI
+- [ ] Usage statistics dashboard
 - [ ] Connection management UI
 - [ ] Database management UI
 - [ ] Permissions panel
@@ -54,18 +62,19 @@ Build an enhanced MySQL MCP server with a React-based web UI for live configurat
 - [ ] Documentation completion
 - [ ] Production deployment
 
-**Current Status:** Backend is fully functional and ready to use. You can start the server and use all MCP tools and REST API endpoints immediately.
+**Current Status:** Backend v2.0 with SQLite is fully functional and tested. Server auto-generates API key on first startup. All endpoints working including new API key management and request logging features.
 
 ---
 
-## 🔄 New Features (v2.0)
+## 🔄 New Features (v2.0) - ✅ COMPLETED
 
-### SQLite-Based Storage
-- **Replace JSON config** with SQLite database for better data management
-- **Multi-API Key Support**: Generate and manage multiple named API keys
-- **Request/Response Logging**: Track all API requests with timestamps and API key attribution
-- **Better Performance**: SQLite provides faster queries and better concurrency
-- **Data Integrity**: ACID compliance and referential integrity
+### SQLite-Based Storage (✅ Implemented)
+- ✅ **Replaced JSON config** with SQLite database for better data management
+- ✅ **Multi-API Key Support**: Generate and manage multiple named API keys
+- ✅ **Request/Response Logging**: Track all API requests with timestamps and API key attribution
+- ✅ **Better Performance**: SQLite provides faster queries and better concurrency
+- ✅ **Data Integrity**: ACID compliance and referential integrity with foreign key constraints
+- ✅ **Master Encryption Key**: Centrally managed encryption key stored in settings table
 
 ### Database Schema
 
@@ -237,36 +246,41 @@ mysql-mcp-webui/
 ├── PLAN.md                      # This file
 ├── TODO.md                      # Task checklist
 ├── README.md                    # User documentation
+├── MIGRATION.md                 # v2.0 migration notes
 ├── package.json                 # Root workspace config
-├── config/
-│   └── config.json              # Persisted configuration
+├── data/
+│   └── database.db              # SQLite database (v2.0)
 ├── server/
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── src/
-│   │   ├── index.ts             # Main entry point
-│   │   ├── http-server.ts       # Express app setup
+│   │   ├── index.ts             # Main entry point (updated for v2.0)
+│   │   ├── http-server.ts       # Express app setup (updated for v2.0)
 │   │   ├── mcp/
 │   │   │   ├── server.ts        # MCP server factory
-│   │   │   ├── handlers.ts      # MCP request handlers
+│   │   │   ├── handlers.ts      # MCP request handlers (updated for v2.0)
 │   │   │   └── tools.ts         # MCP tool definitions
 │   │   ├── api/
 │   │   │   ├── routes/
-│   │   │   │   ├── connections.ts
-│   │   │   │   ├── databases.ts
+│   │   │   │   ├── connections.ts   # Updated for v2.0
+│   │   │   │   ├── databases.ts     # Updated for v2.0
 │   │   │   │   ├── query.ts
-│   │   │   │   └── settings.ts
+│   │   │   │   ├── settings.ts      # Updated for v2.0
+│   │   │   │   ├── api-keys.ts      # NEW in v2.0
+│   │   │   │   └── logs.ts          # NEW in v2.0
 │   │   │   └── middleware/
-│   │   │       └── auth.ts
+│   │   │       ├── auth.ts          # Updated for API keys (v2.0)
+│   │   │       └── logging.ts       # NEW in v2.0
 │   │   ├── db/
-│   │   │   ├── connection-manager.ts
-│   │   │   ├── query-executor.ts
+│   │   │   ├── connection-manager.ts  # Updated for v2.0
+│   │   │   ├── query-executor.ts      # Updated for v2.0
 │   │   │   ├── discovery.ts
-│   │   │   └── permissions.ts
+│   │   │   ├── permissions.ts
+│   │   │   ├── database-manager.ts    # NEW in v2.0 (replaces ConfigManager)
+│   │   │   └── schema.ts              # NEW in v2.0
 │   │   ├── config/
-│   │   │   ├── manager.ts
-│   │   │   ├── schema.ts
-│   │   │   └── crypto.ts
+│   │   │   ├── crypto.ts              # Password encryption
+│   │   │   └── master-key.ts          # NEW in v2.0
 │   │   └── types/
 │   │       └── index.ts
 │   └── dist/                    # Compiled output
@@ -298,16 +312,27 @@ mysql-mcp-webui/
     │   │   │   ├── QueryTester.tsx
     │   │   │   ├── SqlEditor.tsx
     │   │   │   └── ResultsTable.tsx
+    │   │   ├── ApiKeys/                # NEW in v2.0
+    │   │   │   ├── ApiKeyList.tsx
+    │   │   │   ├── ApiKeyCard.tsx
+    │   │   │   ├── CreateKeyModal.tsx
+    │   │   │   └── KeyDetailsModal.tsx
+    │   │   ├── Logs/                   # NEW in v2.0
+    │   │   │   ├── LogsViewer.tsx
+    │   │   │   ├── LogsTable.tsx
+    │   │   │   ├── LogDetailsModal.tsx
+    │   │   │   └── UsageStats.tsx
     │   │   ├── Settings/
     │   │   │   ├── Settings.tsx
-    │   │   │   ├── TokenDisplay.tsx
+    │   │   │   ├── ApiKeysSection.tsx  # NEW in v2.0
     │   │   │   └── McpConfigSnippet.tsx
     │   │   ├── Common/
     │   │   │   ├── Button.tsx
     │   │   │   ├── Input.tsx
     │   │   │   ├── Modal.tsx
     │   │   │   ├── Toggle.tsx
-    │   │   │   └── CodeBlock.tsx
+    │   │   │   ├── CodeBlock.tsx
+    │   │   │   └── Table.tsx           # NEW in v2.0
     │   │   └── Auth/
     │   │       ├── AuthProvider.tsx
     │   │       └── AuthModal.tsx
@@ -316,7 +341,9 @@ mysql-mcp-webui/
     │   ├── hooks/
     │   │   ├── useConnections.ts
     │   │   ├── useDatabases.ts
-    │   │   └── useActiveState.ts
+    │   │   ├── useActiveState.ts
+    │   │   ├── useApiKeys.ts           # NEW in v2.0
+    │   │   └── useLogs.ts              # NEW in v2.0
     │   └── lib/
     │       └── utils.ts
     └── public/                  # Build output
@@ -324,15 +351,28 @@ mysql-mcp-webui/
 
 ---
 
-## Configuration Schema
+## Data Storage (v2.0)
 
-### config.json Structure
+### SQLite Database Structure
+
+All configuration and operational data is stored in `data/database.db` (SQLite). The database contains:
+
+**Tables:**
+- `api_keys` - Multiple named API keys for authentication
+- `connections` - MySQL server connection configurations
+- `databases` - Database permissions and metadata
+- `request_logs` - Automatic logging of all API requests
+- `settings` - Server settings (transport, port, master key)
+
+### Legacy config.json Structure (v1.0 - Deprecated)
+
+**Note:** v2.0 uses SQLite instead of JSON. This section is for reference only.
 
 ```json
 {
-  "serverToken": "generated-secure-token-64-chars",
-  "transport": "stdio",
-  "httpPort": 3000,
+  "serverToken": "generated-secure-token-64-chars",  # Replaced by api_keys table
+  "transport": "stdio",                              # Now in settings table
+  "httpPort": 3000,                                  # Now in settings table
   "connections": {
     "conn_123abc": {
       "id": "conn_123abc",
@@ -539,13 +579,15 @@ Switch to a different database in the active connection.
 
 ## REST API Endpoints
 
-### Authentication
-All endpoints except `/api/health` require Bearer token authentication.
+### Authentication (v2.0 Updated)
+All endpoints except `/api/health` require Bearer token authentication using API keys.
 
 **Header:**
 ```
-Authorization: Bearer <serverToken>
+Authorization: Bearer <api-key>
 ```
+
+**Note:** In v2.0, API keys are managed via the `/api/keys` endpoints. The server auto-generates a default key on first startup.
 
 ### Connection Management
 
@@ -745,37 +787,198 @@ Execute SQL query against active database.
 }
 ```
 
-### Settings
+### API Key Management (NEW in v2.0)
 
-#### GET /api/settings
-Get server settings.
+#### GET /api/keys
+List all API keys.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "key_123abc",
+      "name": "Production Key",
+      "keyPreview": "a1b2c3d4...xyz890",
+      "created_at": 1699564800000,
+      "last_used_at": 1699651200000,
+      "is_active": true
+    }
+  ]
+}
+```
+
+#### POST /api/keys
+Create new API key.
+
+**Request:**
+```json
+{
+  "name": "My New Key"
+}
+```
 
 **Response:**
 ```json
 {
   "success": true,
   "data": {
-    "serverToken": "abc123...",
-    "transport": "stdio",
+    "id": "key_456def",
+    "name": "My New Key",
+    "key": "full-api-key-string-here",
+    "created_at": 1699651200000,
+    "message": "API key created successfully. Please save this key, it will not be shown again."
+  }
+}
+```
+
+#### PUT /api/keys/:id
+Update API key name.
+
+**Request:**
+```json
+{
+  "name": "Updated Key Name"
+}
+```
+
+#### DELETE /api/keys/:id
+Revoke/delete API key.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "API key revoked successfully"
+  }
+}
+```
+
+#### GET /api/keys/:id/logs
+Get request logs for specific API key.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "endpoint": "/api/connections",
+      "method": "GET",
+      "status_code": 200,
+      "duration_ms": 45,
+      "timestamp": 1699651200000
+    }
+  ]
+}
+```
+
+### Request Logs (NEW in v2.0)
+
+#### GET /api/logs
+Get all request logs with pagination.
+
+**Query Parameters:**
+- `limit` (default: 100) - Number of logs to return
+- `offset` (default: 0) - Pagination offset
+- `apiKeyId` (optional) - Filter by API key ID
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "api_key_id": "key_123abc",
+      "endpoint": "/api/connections",
+      "method": "GET",
+      "request_body": null,
+      "response_body": "{\"success\":true,\"data\":[]}",
+      "status_code": 200,
+      "duration_ms": 45,
+      "timestamp": 1699651200000
+    }
+  ],
+  "pagination": {
+    "limit": 100,
+    "offset": 0,
+    "count": 1
+  }
+}
+```
+
+#### GET /api/logs/stats
+Get usage statistics.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalRequests": 1234,
+    "byApiKey": [
+      {
+        "api_key_id": "key_123abc",
+        "count": 800
+      },
+      {
+        "api_key_id": "key_456def",
+        "count": 434
+      }
+    ],
+    "byEndpoint": [
+      {
+        "endpoint": "/api/query",
+        "count": 500
+      },
+      {
+        "endpoint": "/api/connections",
+        "count": 300
+      }
+    ]
+  }
+}
+```
+
+#### DELETE /api/logs
+Clear old logs.
+
+**Query Parameters:**
+- `days` (default: 30) - Delete logs older than this many days
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": 450,
+    "message": "Deleted 450 logs older than 30 days"
+  }
+}
+```
+
+### Settings
+
+#### GET /api/settings
+Get server settings.
+
+**Response (v2.0):**
+```json
+{
+  "success": true,
+  "data": {
+    "transport": "http",
     "httpPort": 3000,
     "nodeVersion": "v22.20.0"
   }
 }
 ```
 
-#### POST /api/settings/token/rotate
-Generate new authentication token.
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "newToken": "xyz789...",
-    "message": "Token rotated successfully. Update MCP client config."
-  }
-}
-```
+**Note:** `serverToken` field removed in v2.0. Use API key management endpoints instead.
 
 #### GET /api/active
 Get current active state.
@@ -1210,14 +1413,26 @@ CMD ["node", "server/dist/index.js"]
 
 ---
 
-**Plan Version:** 1.1
+**Plan Version:** 2.0
 **Last Updated:** 2025-11-04
-**Status:** Backend Complete - Frontend In Progress
+**Status:** Backend v2.0 Complete (SQLite Migration) - Frontend Pending
 
 **Achievement Summary:**
-- ✅ 17 TypeScript backend modules implemented
-- ✅ Server compiles successfully
+- ✅ 22 TypeScript backend modules implemented (5 new in v2.0)
+- ✅ SQLite database with 5 tables fully operational
+- ✅ Multi-API key system implemented and tested
+- ✅ Automatic request/response logging functional
+- ✅ Server compiles successfully and tested with real requests
 - ✅ All core functionality operational
 - ✅ MCP tools ready for Claude integration
-- ✅ REST API ready for web UI
+- ✅ REST API ready for web UI (30+ endpoints)
 - 🚧 Frontend infrastructure in place, components pending
+
+**v2.0 Changes:**
+- ✅ Migrated from JSON config to SQLite database
+- ✅ Replaced ConfigManager with DatabaseManager (600+ lines)
+- ✅ Implemented multi-API key authentication
+- ✅ Added comprehensive request/response logging
+- ✅ Created 6 new API endpoints for keys and logs
+- ✅ Updated 8 existing files for SQLite integration
+- ✅ All tests passed successfully

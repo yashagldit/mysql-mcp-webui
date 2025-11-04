@@ -5,13 +5,13 @@ import type {
 } from '@modelcontextprotocol/sdk/types.js';
 import { getAllTools } from './tools.js';
 import { getQueryExecutor } from '../db/query-executor.js';
-import { getConfigManager } from '../config/manager.js';
+import { getDatabaseManager } from '../db/database-manager.js';
 import { getDatabaseDiscovery } from '../db/discovery.js';
 import { getConnectionManager } from '../db/connection-manager.js';
 
 export class McpHandlers {
   private queryExecutor = getQueryExecutor();
-  private configManager = getConfigManager();
+  private dbManager = getDatabaseManager();
   private databaseDiscovery = getDatabaseDiscovery();
   private connectionManager = getConnectionManager();
 
@@ -117,9 +117,9 @@ export class McpHandlers {
     const { include_metadata = false } = (args as { include_metadata?: boolean }) || {};
 
     try {
-      const config = this.configManager.getConfig();
+      const connection = this.dbManager.getActiveConnection();
 
-      if (!config.activeConnection) {
+      if (!connection) {
         return {
           content: [
             {
@@ -131,25 +131,12 @@ export class McpHandlers {
         };
       }
 
-      const connection = config.connections[config.activeConnection];
-      if (!connection) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Error: Active connection not found',
-            },
-          ],
-          isError: true,
-        };
-      }
-
       const databaseNames = Object.keys(connection.databases);
       const databases = [];
 
       if (include_metadata) {
         // Get metadata for each database
-        const pool = await this.connectionManager.getPool(config.activeConnection);
+        const pool = await this.connectionManager.getPool(connection.id);
 
         for (const dbName of databaseNames) {
           try {
@@ -223,27 +210,14 @@ export class McpHandlers {
     }
 
     try {
-      const config = this.configManager.getConfig();
+      const connection = this.dbManager.getActiveConnection();
 
-      if (!config.activeConnection) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Error: No active connection configured',
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      const connection = config.connections[config.activeConnection];
       if (!connection) {
         return {
           content: [
             {
               type: 'text',
-              text: 'Error: Active connection not found',
+              text: 'Error: No active connection configured',
             },
           ],
           isError: true,
@@ -265,7 +239,7 @@ export class McpHandlers {
       const previousDatabase = connection.activeDatabase;
 
       // Switch database
-      await this.configManager.switchDatabase(config.activeConnection, database);
+      this.dbManager.switchDatabase(connection.id, database);
 
       const newPermissions = connection.databases[database].permissions;
 

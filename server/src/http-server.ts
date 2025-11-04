@@ -3,10 +3,13 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { authMiddleware, optionalAuthMiddleware } from './api/middleware/auth.js';
+import { loggingMiddleware } from './api/middleware/logging.js';
 import connectionsRouter from './api/routes/connections.js';
 import databasesRouter from './api/routes/databases.js';
 import queryRouter from './api/routes/query.js';
 import settingsRouter from './api/routes/settings.js';
+import apiKeysRouter from './api/routes/api-keys.js';
+import logsRouter from './api/routes/logs.js';
 import { getMcpServer } from './mcp/server.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,11 +27,14 @@ export function createHttpServer(): Express {
     })
   );
 
-  // Request logging
+  // Console logging
   app.use((req: Request, res: Response, next: NextFunction) => {
     console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
     next();
   });
+
+  // Database logging (logs requests with API key)
+  app.use(loggingMiddleware);
 
   // Health check endpoint (public, no auth)
   app.get('/api/health', async (req, res, next) => {
@@ -57,6 +63,8 @@ export function createHttpServer(): Express {
   app.use('/api/query', authMiddleware, queryRouter);
   app.use('/api/settings', authMiddleware, settingsRouter);
   app.use('/api/active', authMiddleware, settingsRouter);
+  app.use('/api/keys', authMiddleware, apiKeysRouter);
+  app.use('/api/logs', authMiddleware, logsRouter);
 
   // Serve static files in production
   if (process.env.NODE_ENV === 'production') {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { getConfigManager } from './config/manager.js';
+import { getDatabaseManager } from './db/database-manager.js';
 import { getMcpServer } from './mcp/server.js';
 import { createHttpServer } from './http-server.js';
 import { getConnectionManager } from './db/connection-manager.js';
@@ -9,16 +9,22 @@ async function main() {
   try {
     console.error('Starting MySQL MCP WebUI Server...');
 
-    // Load configuration
-    const configManager = getConfigManager();
-    await configManager.loadConfig();
-    const config = configManager.getConfig();
+    // Initialize database
+    const dbManager = getDatabaseManager();
 
-    console.error(`Server token: ${config.serverToken}`);
-    console.error(`Transport mode: ${config.transport}`);
+    // Ensure at least one API key exists
+    const apiKeys = dbManager.getAllApiKeys();
+    if (apiKeys.length === 0) {
+      const firstKey = dbManager.createApiKey('Default API Key');
+      console.error(`Created initial API key: ${firstKey.key}`);
+      console.error('Please save this key - it will not be shown again!');
+    } else {
+      console.error(`Found ${apiKeys.length} API key(s) in database`);
+    }
 
-    // Determine transport mode
-    const transport = process.env.TRANSPORT || config.transport;
+    // Get transport setting
+    const transport = process.env.TRANSPORT || dbManager.getSetting('transport') || 'http';
+    console.error(`Transport mode: ${transport}`);
 
     if (transport === 'stdio') {
       // Stdio mode - MCP only
@@ -32,7 +38,7 @@ async function main() {
       // HTTP mode - Both MCP and REST API
       console.error('Running in HTTP mode (MCP + REST API + Web UI)');
 
-      const port = parseInt(process.env.HTTP_PORT || String(config.httpPort)) || 3000;
+      const port = parseInt(process.env.HTTP_PORT || dbManager.getSetting('httpPort') || '3000');
       const app = createHttpServer();
 
       const server = app.listen(port, () => {

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { getConfigManager } from '../../config/manager.js';
+import { getDatabaseManager } from '../../db/database-manager.js';
 import { getConnectionManager } from '../../db/connection-manager.js';
 import { getDatabaseDiscovery } from '../../db/discovery.js';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../../types/index.js';
 
 const router = Router();
-const configManager = getConfigManager();
+const dbManager = getDatabaseManager();
 const connectionManager = getConnectionManager();
 const databaseDiscovery = getDatabaseDiscovery();
 
@@ -18,8 +18,7 @@ const databaseDiscovery = getDatabaseDiscovery();
  */
 router.get('/:id/databases', async (req: Request, res: Response) => {
   try {
-    const config = configManager.getConfig();
-    const connection = config.connections[req.params.id];
+    const connection = dbManager.getConnection(req.params.id);
 
     if (!connection) {
       res.status(404).json({
@@ -97,8 +96,7 @@ router.post('/:connId/databases/:dbName/activate', async (req: Request, res: Res
   try {
     const { connId, dbName } = req.params;
 
-    const config = configManager.getConfig();
-    const connection = config.connections[connId];
+    const connection = dbManager.getConnection(connId);
 
     if (!connection) {
       res.status(404).json({
@@ -116,7 +114,7 @@ router.post('/:connId/databases/:dbName/activate', async (req: Request, res: Res
       return;
     }
 
-    await configManager.switchDatabase(connId, dbName);
+    dbManager.switchDatabase(connId, dbName);
 
     res.json({
       success: true,
@@ -152,7 +150,7 @@ router.put('/:connId/databases/:dbName/permissions', async (req: Request, res: R
       return;
     }
 
-    await configManager.updateDatabasePermissions(connId, dbName, validation.data.permissions);
+    dbManager.updateDatabasePermissions(connId, dbName, validation.data.permissions);
 
     res.json({
       success: true,

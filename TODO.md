@@ -60,7 +60,7 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 
 ---
 
-## Phase 2: Backend - Configuration System ✅ COMPLETED
+## Phase 2: Backend - Data Storage System ✅ COMPLETED (v2.0 Updated)
 
 ### 2.1 Configuration Schema ✅
 - [✅] Define TypeScript interfaces for Config
@@ -69,6 +69,8 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 - [✅] Define Permissions interface
 - [✅] Create Zod schemas for validation
 - [✅] Define default configuration structure
+- [✅] Define ApiKey interface (v2.0)
+- [✅] Define RequestLog interface (v2.0)
 
 ### 2.2 Crypto Module ✅
 - [✅] Implement generateToken() function
@@ -77,22 +79,20 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 - [✅] Add error handling for encryption/decryption
 - [✅] Test encryption with various password formats
 
-### 2.3 Config Manager ✅
-- [✅] Create ConfigManager class
-- [✅] Implement loadConfig() with file reading
-- [✅] Implement saveConfig() with atomic write
-- [✅] Implement getActiveConnection()
-- [✅] Implement getActiveDatabase()
-- [✅] Implement addConnection()
-- [✅] Implement updateConnection()
-- [✅] Implement removeConnection()
-- [✅] Implement switchConnection()
-- [✅] Implement addDatabase()
-- [✅] Implement updateDatabasePermissions()
-- [✅] Implement switchDatabase()
-- [✅] Add config validation on load
-- [✅] Create default config on first run
-- [✅] Handle config file errors gracefully
+### 2.3 SQLite Database Manager ✅ (v2.0 - Replaces ConfigManager)
+- [✅] Create SQLite schema with 5 tables
+- [✅] Create DatabaseManager class (600+ lines)
+- [✅] Implement API key management methods
+- [✅] Implement connection CRUD operations
+- [✅] Implement database management methods
+- [✅] Implement request logging methods
+- [✅] Implement settings management
+- [✅] Add database initialization
+- [✅] Add foreign key constraints
+- [✅] Create indexes for performance
+- [✅] Implement master encryption key management
+- [✅] Test all database operations
+- [✅] Successfully tested with real requests
 
 ---
 
@@ -199,13 +199,15 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 - [✅] Add request logging
 - [✅] Setup CORS for development
 
-### 5.2 Authentication Middleware ✅
+### 5.2 Authentication Middleware ✅ (v2.0 Updated)
 - [✅] Create authMiddleware function
 - [✅] Extract Bearer token from Authorization header
-- [✅] Verify token against config
+- [✅] Verify token against API keys in database (v2.0)
 - [✅] Use constant-time comparison
 - [✅] Return 401 for missing/invalid tokens
 - [✅] Allow public access to /health
+- [✅] Track last_used_at for API keys (v2.0)
+- [✅] Set req.apiKeyId for logging (v2.0)
 
 ### 5.3 Connection Routes ✅
 - [✅] GET /api/connections - List all connections
@@ -233,12 +235,38 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 - [✅] Add execution timing
 - [✅] Handle query errors
 
-### 5.6 Settings Routes ✅
-- [✅] GET /api/settings - Get server settings
-- [✅] POST /api/settings/token/rotate - Rotate token
+### 5.6 Settings Routes ✅ (v2.0 Updated)
+- [✅] GET /api/settings - Get server settings (updated for v2.0)
 - [✅] GET /api/active - Get active state
 - [✅] GET /api/health - Health check
 - [✅] Add appropriate responses
+
+### 5.7 API Key Routes ✅ (NEW in v2.0)
+- [✅] GET /api/keys - List all API keys
+- [✅] POST /api/keys - Create new API key
+- [✅] GET /api/keys/:id - Get specific API key
+- [✅] PUT /api/keys/:id - Update API key name
+- [✅] DELETE /api/keys/:id - Revoke API key
+- [✅] POST /api/keys/:id/revoke - Alternative revoke endpoint
+- [✅] GET /api/keys/:id/logs - Get logs for specific key
+- [✅] Add validation and error handling
+- [✅] Tested successfully
+
+### 5.8 Request Logs Routes ✅ (NEW in v2.0)
+- [✅] GET /api/logs - Get all logs with pagination
+- [✅] GET /api/logs/stats - Get usage statistics
+- [✅] DELETE /api/logs - Clear old logs
+- [✅] Add query parameter support
+- [✅] Add filtering by API key
+- [✅] Tested successfully
+
+### 5.9 Logging Middleware ✅ (NEW in v2.0)
+- [✅] Create loggingMiddleware
+- [✅] Intercept request/response
+- [✅] Log to database automatically
+- [✅] Track duration and status codes
+- [✅] Link logs to API key IDs
+- [✅] Tested successfully
 
 ---
 
@@ -358,8 +386,20 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 - [ ] executeQuery(sql)
 - [ ] getActiveState()
 - [ ] getSettings()
-- [ ] rotateToken()
 - [ ] getHealth()
+
+### 9.5 API Functions - API Keys (NEW in v2.0)
+- [ ] getApiKeys()
+- [ ] getApiKey(id)
+- [ ] createApiKey(name)
+- [ ] updateApiKey(id, name)
+- [ ] revokeApiKey(id)
+- [ ] getApiKeyLogs(id)
+
+### 9.6 API Functions - Logs (NEW in v2.0)
+- [ ] getLogs(limit, offset, apiKeyId)
+- [ ] getLogsStats()
+- [ ] clearOldLogs(days)
 
 ---
 
@@ -386,6 +426,18 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 
 ### 10.4 Query Hook
 - [ ] Create useExecuteQuery() mutation
+
+### 10.5 API Key Hooks (NEW in v2.0)
+- [ ] Create useApiKeys() hook
+- [ ] Create useApiKey(id) hook
+- [ ] Create useCreateApiKey() mutation
+- [ ] Create useUpdateApiKey() mutation
+- [ ] Create useRevokeApiKey() mutation
+
+### 10.6 Logs Hooks (NEW in v2.0)
+- [ ] Create useLogs() hook with pagination
+- [ ] Create useLogsStats() hook
+- [ ] Create useClearLogs() mutation
 
 ---
 
@@ -530,30 +582,111 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 - [ ] Create Settings component
 - [ ] Add page sections
 - [ ] Style with cards
+- [ ] Update to show API keys section instead of single token (v2.0)
 
-### 15.2 Token Display
-- [ ] Create TokenDisplay component
-- [ ] Show current token in code block
-- [ ] Add Copy button
-- [ ] Add Rotate Token button
-- [ ] Confirm before rotating
-- [ ] Show new token after rotation
-- [ ] Warn about updating MCP config
+### 15.2 API Keys Section (v2.0 Updated)
+- [ ] Create ApiKeysSection component
+- [ ] Link to full API Keys management page
+- [ ] Show quick stats (total keys, active keys)
+- [ ] Add "Manage API Keys" button
 
 ### 15.3 MCP Config Snippets
 - [ ] Create McpConfigSnippet component
 - [ ] Add tabs for HTTP mode and Node mode
-- [ ] Generate HTTP mode config with actual values
+- [ ] Generate HTTP mode config with API key placeholder
 - [ ] Generate Node mode config with actual paths
 - [ ] Detect node installation path
 - [ ] Add copy button for each snippet
 - [ ] Syntax highlighting for JSON
+- [ ] Update instructions for v2.0
 
 ### 15.4 Transport Mode Setting
 - [ ] Show current transport mode
 - [ ] Allow changing transport mode
 - [ ] Warn that restart is required
-- [ ] Save to config
+- [ ] Save to settings table (v2.0)
+
+---
+
+## Phase 15A: Frontend - API Key Management (NEW in v2.0)
+
+### 15A.1 API Key List Page
+- [ ] Create ApiKeyList component
+- [ ] Fetch all API keys
+- [ ] Display in card/table format
+- [ ] Show key preview, name, created date
+- [ ] Show last used timestamp
+- [ ] Add "Create New Key" button
+- [ ] Add loading state
+- [ ] Add empty state
+
+### 15A.2 API Key Card
+- [ ] Create ApiKeyCard component
+- [ ] Display key name and preview
+- [ ] Show created_at and last_used_at
+- [ ] Show active/inactive status
+- [ ] Add Edit button (rename)
+- [ ] Add Revoke/Delete button
+- [ ] Add View Logs button
+- [ ] Add confirmation dialogs
+
+### 15A.3 Create Key Modal
+- [ ] Create CreateKeyModal component
+- [ ] Add form with name input
+- [ ] Generate key on submit
+- [ ] Show full key ONCE after creation
+- [ ] Add copy button for new key
+- [ ] Warning message about saving key
+- [ ] Handle form validation
+- [ ] Close modal after saving key
+
+### 15A.4 Key Details Modal
+- [ ] Create KeyDetailsModal component
+- [ ] Show full key details
+- [ ] Display usage statistics
+- [ ] Show recent requests for this key
+- [ ] Add rename functionality
+- [ ] Add revoke functionality
+
+---
+
+## Phase 15B: Frontend - Request Logs (NEW in v2.0)
+
+### 15B.1 Logs Viewer Page
+- [ ] Create LogsViewer component
+- [ ] Add filters (API key, date range, endpoint)
+- [ ] Add pagination controls
+- [ ] Show usage statistics at top
+- [ ] Add refresh button
+- [ ] Add clear logs button
+
+### 15B.2 Logs Table
+- [ ] Create LogsTable component
+- [ ] Display logs in table format
+- [ ] Show timestamp, method, endpoint, status
+- [ ] Show duration in ms
+- [ ] Add row click to view details
+- [ ] Add sorting by columns
+- [ ] Color code by status (2xx green, 4xx yellow, 5xx red)
+- [ ] Add pagination
+
+### 15B.3 Log Details Modal
+- [ ] Create LogDetailsModal component
+- [ ] Show full request details
+- [ ] Show request body (formatted JSON)
+- [ ] Show response body (formatted JSON)
+- [ ] Show all metadata
+- [ ] Add copy buttons
+- [ ] Syntax highlighting
+
+### 15B.4 Usage Statistics
+- [ ] Create UsageStats component
+- [ ] Show total requests count
+- [ ] Show requests by API key (chart/table)
+- [ ] Show requests by endpoint (chart/table)
+- [ ] Show average response time
+- [ ] Add date range selector
+- [ ] Add export functionality
 
 ---
 
@@ -752,39 +885,52 @@ This TODO list tracks all implementation tasks for the MySQL MCP server with Web
 
 ## Progress Summary
 
-**Total Tasks:** ~300+
+**Total Tasks:** ~350+ (added ~50 tasks for v2.0)
 
 **By Phase:**
 - Phase 1 (Setup): ✅ 30/31 (97%)
-- Phase 2 (Config): ✅ 15/15 (100%)
-- Phase 3 (Database): ✅ 34/38 (89%)
+- Phase 2 (Data Storage): ✅ 28/28 (100%) - v2.0 Updated
+- Phase 3 (Database Layer): ✅ 34/38 (89%)
 - Phase 4 (MCP): ✅ 19/21 (90%)
-- Phase 5 (API): ✅ 24/24 (100%)
+- Phase 5 (REST API): ✅ 54/54 (100%) - v2.0 with 30 new tasks
 - Phase 6 (Frontend Setup): ✅ 11/12 (92%)
 - Phase 7 (Components): 0/17 (0%)
 - Phase 8 (Auth): 0/8 (0%)
-- Phase 9 (API Client): 0/14 (0%)
-- Phase 10 (Hooks): 0/10 (0%)
+- Phase 9 (API Client): 0/28 (0%) - v2.0 added 14 tasks
+- Phase 10 (Hooks): 0/21 (0%) - v2.0 added 11 tasks
 - Phase 11 (Connections): 0/18 (0%)
 - Phase 12 (Databases): 0/13 (0%)
 - Phase 13 (Permissions): 0/14 (0%)
 - Phase 14 (Query): 0/16 (0%)
-- Phase 15 (Settings): 0/15 (0%)
+- Phase 15 (Settings): 0/15 (0%) - v2.0 updated
+- Phase 15A (API Keys): 0/16 (0%) - NEW in v2.0
+- Phase 15B (Logs): 0/16 (0%) - NEW in v2.0
 - Phase 16 (Dashboard): 0/5 (0%)
 - Phase 17 (Testing): 0/24 (0%)
 - Phase 18 (Build): 0/18 (0%)
 - Phase 19 (Docs): 0/15 (0%)
 - Phase 20 (Polish): 0/15 (0%)
 
-**Current Phase:** Phase 7 - Frontend Common Components
-**Next Milestone:** Build React UI components for configuration management
-**Overall Progress:** ~45% (Backend complete, Frontend infrastructure ready)
+**Backend v2.0 Achievements:**
+- ✅ SQLite database with 5 tables fully implemented
+- ✅ Multi-API key authentication system
+- ✅ Automatic request/response logging
+- ✅ DatabaseManager with 600+ lines of code
+- ✅ 6 new API endpoints (keys + logs)
+- ✅ 8 files updated for SQLite integration
+- ✅ All endpoints tested successfully
+- ✅ Server auto-generates initial API key
 
-**✅ Completed Phases:** 1-6 (Backend + Frontend Setup)
-**🚧 In Progress:** Phase 7 (Frontend Components)
+**Current Phase:** Phase 7 - Frontend Common Components
+**Next Milestone:** Build React UI components including new API key and logs management
+**Overall Progress:** ~48% (Backend v2.0 complete, Frontend infrastructure ready)
+
+**✅ Completed Phases:** 1-6 (Backend v2.0 + Frontend Setup)
+**🚧 Next Up:** Phase 7-15B (Frontend UI with v2.0 features)
 **📋 Remaining:** Phases 7-20 (Frontend UI, Testing, Documentation, Polish)
 
 ---
 
 **Last Updated:** 2025-11-04
-**Status:** Backend fully functional. Server compiles and ready for use. Frontend structure in place.
+**Version:** 2.0 (SQLite Migration Complete)
+**Status:** Backend v2.0 fully functional and tested. Server operational with multi-API key support. Frontend structure ready for v2.0 features.
