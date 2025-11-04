@@ -10,7 +10,7 @@ const serverStartTime = Date.now();
  * GET /api/settings
  * Get server settings
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/settings', async (req: Request, res: Response) => {
   try {
     const transport = dbManager.getSetting('transport') || 'http';
     const httpPort = dbManager.getSetting('httpPort') || '3000';

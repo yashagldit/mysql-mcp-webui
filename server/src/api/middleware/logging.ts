@@ -12,12 +12,26 @@ declare global {
 }
 
 /**
+ * Check if a request should be logged (only MySQL query-related requests)
+ */
+function shouldLogRequest(req: Request): boolean {
+  const path = req.path;
+  const method = req.method;
+
+  // Only log MySQL query execution endpoints
+  if (path === '/api/query' && method === 'POST') return true;
+  if (path === '/mcp' && method === 'POST') return true;
+
+  return false;
+}
+
+/**
  * Request logging middleware
- * Logs all API requests with their responses to the database
+ * Logs MySQL query-related API requests with their responses to the database
  */
 export function loggingMiddleware(req: Request, res: Response, next: NextFunction): void {
-  // Skip logging for health check and static files
-  if (req.path === '/api/health' || req.path.startsWith('/assets/')) {
+  // Only log MySQL query-related requests
+  if (!shouldLogRequest(req)) {
     next();
     return;
   }

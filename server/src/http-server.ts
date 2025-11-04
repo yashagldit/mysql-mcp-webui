@@ -61,8 +61,7 @@ export function createHttpServer(): Express {
   app.use('/api/connections', authMiddleware, connectionsRouter);
   app.use('/api/connections', authMiddleware, databasesRouter);
   app.use('/api/query', authMiddleware, queryRouter);
-  app.use('/api/settings', authMiddleware, settingsRouter);
-  app.use('/api/active', authMiddleware, settingsRouter);
+  app.use('/api', authMiddleware, settingsRouter);
   app.use('/api/keys', authMiddleware, apiKeysRouter);
   app.use('/api/logs', authMiddleware, logsRouter);
 
