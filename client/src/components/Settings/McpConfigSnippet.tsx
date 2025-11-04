@@ -12,6 +12,7 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
   const httpConfig = `{
   "mcpServers": {
     "mysql-mcp": {
+      "type": "http",
       "url": "http://localhost:${settings?.httpPort || 3000}/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
@@ -65,16 +66,29 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
       {mode === 'http' ? (
         <div>
           <div className="mb-2 text-sm text-gray-600">
-            <p className="font-medium mb-1">HTTP Mode (Recommended)</p>
-            <p>Connect to the MCP server over HTTP. Suitable for remote access and production deployments.</p>
+            <p className="font-medium mb-1">HTTP Mode (Recommended for Remote/Running Server)</p>
+            <p>Connect to an already-running MCP server over HTTP. Use this if:</p>
+            <ul className="list-disc list-inside mt-1 text-xs space-y-0.5">
+              <li>The server is already running (manually started or via docker)</li>
+              <li>You need remote access or production deployments</li>
+              <li>You want to keep the server running independently</li>
+            </ul>
           </div>
           <CodeBlock code={httpConfig} language="json" />
+          <p className="mt-2 text-xs text-gray-500">
+            Note: Make sure the server is running before connecting (npm start or docker run)
+          </p>
         </div>
       ) : (
         <div>
           <div className="mb-2 text-sm text-gray-600">
-            <p className="font-medium mb-1">Stdio Mode</p>
-            <p>Run the MCP server as a subprocess. More efficient for local usage.</p>
+            <p className="font-medium mb-1">Stdio Mode (Recommended for Local/Managed)</p>
+            <p>Let Claude Desktop start and manage the MCP server. Use this if:</p>
+            <ul className="list-disc list-inside mt-1 text-xs space-y-0.5">
+              <li>You want Claude Desktop to automatically start/stop the server</li>
+              <li>You're running locally and want simpler setup</li>
+              <li>You prefer the server only runs when Claude is active</li>
+            </ul>
           </div>
           <CodeBlock code={stdioConfig} language="json" />
           <p className="mt-2 text-xs text-gray-500">

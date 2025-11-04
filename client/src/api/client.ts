@@ -193,6 +193,11 @@ class ApiClient {
     };
   }
 
+  async getLogById(id: number): Promise<RequestLog> {
+    const { data } = await this.client.get<ApiResponse<RequestLog>>(`/logs/${id}`);
+    return data.data;
+  }
+
   async getLogsStats(): Promise<LogsStats> {
     const { data } = await this.client.get<ApiResponse<LogsStats>>('/logs/stats');
     return data.data;

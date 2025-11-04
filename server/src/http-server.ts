@@ -53,9 +53,10 @@ export function createHttpServer(): Express {
     }
   });
 
-  // MCP endpoint (requires auth)
+  // MCP endpoint - configured using StreamableHTTPServerTransport
+  // Authentication is handled inside setupHttpTransport
   const mcpServer = getMcpServer();
-  app.post('/mcp', authMiddleware, mcpServer.getHttpHandler());
+  mcpServer.setupHttpTransport(app);
 
   // API routes (all require auth except health)
   app.use('/api/connections', authMiddleware, connectionsRouter);
@@ -70,8 +71,8 @@ export function createHttpServer(): Express {
     const publicPath = path.resolve(__dirname, '../public');
     app.use(express.static(publicPath));
 
-    // Fallback to index.html for client-side routing
-    app.get('*', (req: Request, res: Response) => {
+    // Fallback to index.html for client-side routing (Express 5 syntax with named wildcard)
+    app.get('/*splat', (req: Request, res: Response) => {
       res.sendFile(path.join(publicPath, 'index.html'));
     });
   } else {

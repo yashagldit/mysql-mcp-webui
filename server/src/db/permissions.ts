@@ -39,6 +39,17 @@ export class PermissionValidator {
           return 'DROP';
         case 'TRUNCATE':
           return 'TRUNCATE';
+        case 'SHOW':
+          return 'SHOW';
+        case 'DESCRIBE':
+        case 'DESC':
+          return 'DESCRIBE';
+        case 'EXPLAIN':
+          return 'EXPLAIN';
+        case 'USE':
+          return 'USE';
+        case 'SET':
+          return 'SET';
         default:
           return 'UNKNOWN';
       }
@@ -62,6 +73,12 @@ export class PermissionValidator {
     if (normalized.startsWith('ALTER')) return 'ALTER';
     if (normalized.startsWith('DROP')) return 'DROP';
     if (normalized.startsWith('TRUNCATE')) return 'TRUNCATE';
+    if (normalized.startsWith('SHOW')) return 'SHOW';
+    if (normalized.startsWith('DESCRIBE')) return 'DESCRIBE';
+    if (normalized.startsWith('DESC ')) return 'DESCRIBE';
+    if (normalized.startsWith('EXPLAIN')) return 'EXPLAIN';
+    if (normalized.startsWith('USE')) return 'USE';
+    if (normalized.startsWith('SET')) return 'SET';
 
     return 'UNKNOWN';
   }
@@ -110,7 +127,7 @@ export class PermissionValidator {
    * Check if a query type is a read operation
    */
   isReadOperation(queryType: QueryType): boolean {
-    return queryType === 'SELECT';
+    return ['SELECT', 'SHOW', 'DESCRIBE', 'EXPLAIN', 'USE', 'SET'].includes(queryType);
   }
 
   /**

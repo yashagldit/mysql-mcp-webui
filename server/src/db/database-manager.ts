@@ -587,6 +587,15 @@ export class DatabaseManager {
   }
 
   /**
+   * Get a single request log by ID
+   */
+  getRequestLogById(id: number): RequestLog | null {
+    const stmt = this.db.prepare('SELECT * FROM request_logs WHERE id = ?');
+    const log = stmt.get(id);
+    return log ? (log as RequestLog) : null;
+  }
+
+  /**
    * Get usage statistics
    */
   getUsageStats(): any {

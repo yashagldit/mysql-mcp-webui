@@ -12,16 +12,46 @@ declare global {
 }
 
 /**
- * Check if a request should be logged (only MySQL query-related requests)
+ * Check if a request should be logged
+ * Only logs MCP-related operations (MCP endpoint is logged separately in handlers)
  */
 function shouldLogRequest(req: Request): boolean {
   const path = req.path;
-  const method = req.method;
 
-  // Only log MySQL query execution endpoints
-  if (path === '/api/query' && method === 'POST') return true;
-  if (path === '/mcp' && method === 'POST') return true;
+  // Don't log MCP endpoint here - it's logged in MCP handlers
+  if (path === '/mcp') {
+    return false;
+  }
 
+  // Don't log UI routes, static assets, polling endpoints, and health checks
+  const excludedPaths = [
+    '/',
+    '/active',
+    '/stats',
+    '/api/health',
+    '/api/active',
+    '/api/stats',
+    '/api/logs',
+    '/api/keys',
+    '/api/connections',
+  ];
+
+  if (excludedPaths.includes(path)) {
+    return false;
+  }
+
+  // Don't log static assets
+  if (path.startsWith('/assets/')) {
+    return false;
+  }
+
+  // Only log if it's an API query execution endpoint
+  // (e.g., /api/query or other actual database operations)
+  if (path === '/api/query' && req.method === 'POST') {
+    return true;
+  }
+
+  // Don't log anything else
   return false;
 }
 

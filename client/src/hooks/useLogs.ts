@@ -8,6 +8,14 @@ export const useLogs = (params?: { limit?: number; offset?: number; apiKeyId?: s
   });
 };
 
+export const useLogDetails = (id: number | null) => {
+  return useQuery({
+    queryKey: ['log', id],
+    queryFn: () => apiClient.getLogById(id!),
+    enabled: id !== null,
+  });
+};
+
 export const useLogsStats = () => {
   return useQuery({
     queryKey: ['logsStats'],

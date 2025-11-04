@@ -249,6 +249,11 @@ export type QueryType =
   | 'ALTER'
   | 'DROP'
   | 'TRUNCATE'
+  | 'SHOW'
+  | 'DESCRIBE'
+  | 'EXPLAIN'
+  | 'USE'
+  | 'SET'
   | 'UNKNOWN';
 
 export const QueryTypePermissionMap: Record<QueryType, keyof Permissions | null> = {
@@ -260,5 +265,10 @@ export const QueryTypePermissionMap: Record<QueryType, keyof Permissions | null>
   ALTER: 'alter',
   DROP: 'drop',
   TRUNCATE: 'truncate',
+  SHOW: 'select',
+  DESCRIBE: 'select',
+  EXPLAIN: 'select',
+  USE: 'select',
+  SET: 'select',
   UNKNOWN: null,
 };

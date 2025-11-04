@@ -14,6 +14,14 @@ export class McpHandlers {
   private dbManager = getDatabaseManager();
   private databaseDiscovery = getDatabaseDiscovery();
   private connectionManager = getConnectionManager();
+  private currentApiKeyId: string | null = null;
+
+  /**
+   * Set the current API key ID for logging
+   */
+  setApiKeyId(apiKeyId: string | null): void {
+    this.currentApiKeyId = apiKeyId;
+  }
 
   /**
    * Handle ListTools request
@@ -29,20 +37,26 @@ export class McpHandlers {
    */
   async handleCallTool(request: CallToolRequest): Promise<CallToolResult> {
     const { name, arguments: args } = request.params;
+    const startTime = Date.now();
 
     try {
+      let result: CallToolResult;
+
       switch (name) {
         case 'mysql_query':
-          return await this.handleMysqlQuery(args);
+          result = await this.handleMysqlQuery(args);
+          break;
 
         case 'list_databases':
-          return await this.handleListDatabases(args);
+          result = await this.handleListDatabases(args);
+          break;
 
         case 'switch_database':
-          return await this.handleSwitchDatabase(args);
+          result = await this.handleSwitchDatabase(args);
+          break;
 
         default:
-          return {
+          result = {
             content: [
               {
                 type: 'text',
@@ -52,8 +66,26 @@ export class McpHandlers {
             isError: true,
           };
       }
+
+      // Log the MCP tool call
+      if (this.currentApiKeyId) {
+        const duration = Date.now() - startTime;
+        const statusCode = result.isError ? 400 : 200;
+
+        this.dbManager.logRequest(
+          this.currentApiKeyId,
+          `/mcp/${name}`,
+          'TOOL_CALL',
+          { tool: name, arguments: args },
+          result,
+          statusCode,
+          duration
+        );
+      }
+
+      return result;
     } catch (error) {
-      return {
+      const errorResult: CallToolResult = {
         content: [
           {
             type: 'text',
@@ -62,6 +94,23 @@ export class McpHandlers {
         ],
         isError: true,
       };
+
+      // Log the error
+      if (this.currentApiKeyId) {
+        const duration = Date.now() - startTime;
+
+        this.dbManager.logRequest(
+          this.currentApiKeyId,
+          `/mcp/${name}`,
+          'TOOL_CALL',
+          { tool: name, arguments: args },
+          errorResult,
+          500,
+          duration
+        );
+      }
+
+      return errorResult;
     }
   }
 
