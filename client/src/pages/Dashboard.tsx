@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Server, Database, Key, FileText, Activity } from 'lucide-react';
 import { Card, Badge } from '../components/Common';
+import { DatabaseQuickSwitch } from '../components/Dashboard';
 import { useConnections } from '../hooks/useConnections';
 import { useActiveState } from '../hooks/useActiveState';
 import { useApiKeys } from '../hooks/useApiKeys';
@@ -76,6 +77,9 @@ export const Dashboard: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Quick Database Switch */}
+      {activeState?.connectionId && <DatabaseQuickSwitch />}
 
       {/* Active Connection Info */}
       {activeState?.connectionName && (

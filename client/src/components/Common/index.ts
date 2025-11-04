@@ -8,3 +8,5 @@ export { Table } from './Table';
 export { CodeBlock } from './CodeBlock';
 export { Alert } from './Alert';
 export { Spinner, LoadingScreen } from './Spinner';
+export { DatabaseSwitcher } from './DatabaseSwitcher';
+export { Pagination } from './Pagination';

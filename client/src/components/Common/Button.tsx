@@ -6,6 +6,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
 }
 
@@ -15,6 +16,7 @@ export const Button: React.FC<ButtonProps> = ({
   size = 'md',
   loading = false,
   icon,
+  iconPosition = 'left',
   fullWidth = false,
   disabled,
   className = '',
@@ -37,18 +39,24 @@ export const Button: React.FC<ButtonProps> = ({
 
   const widthStyle = fullWidth ? 'w-full' : '';
 
+  const renderIcon = () => {
+    if (loading) {
+      return <Loader2 className="w-4 h-4 animate-spin" />;
+    }
+    return icon;
+  };
+
+  const iconElement = renderIcon();
+
   return (
     <button
       className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${widthStyle} ${className}`}
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
-        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-      ) : icon ? (
-        <span className="mr-2">{icon}</span>
-      ) : null}
+      {iconElement && iconPosition === 'left' && <span className="mr-2">{iconElement}</span>}
       {children}
+      {iconElement && iconPosition === 'right' && <span className="ml-2">{iconElement}</span>}
     </button>
   );
 };

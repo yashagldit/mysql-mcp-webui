@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 
-export const useLogs = (params?: { limit?: number; offset?: number; apiKeyId?: string }) => {
+export const useLogs = (params?: { limit?: number; offset?: number; apiKeyId?: string; search?: string }) => {
   return useQuery({
     queryKey: ['logs', params],
     queryFn: () => apiClient.getLogs(params),
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 };
 

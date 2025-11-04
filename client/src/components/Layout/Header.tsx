@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Database, Activity } from 'lucide-react';
-import { Badge } from '../Common';
+import { Badge, DatabaseSwitcher } from '../Common';
 
 interface HeaderProps {
   activeConnection?: string;
@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {activeDatabase && (
                   <>
                     <span className="text-gray-400">/</span>
-                    <Badge variant="success">{activeDatabase}</Badge>
+                    <DatabaseSwitcher />
                   </>
                 )}
               </div>

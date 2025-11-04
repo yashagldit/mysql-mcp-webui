@@ -12,9 +12,12 @@ router.get('/', (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 100;
     const offset = parseInt(req.query.offset as string) || 0;
-    const apiKeyId = req.query.api_key_id as string | undefined;
+    // Accept both camelCase (from frontend) and snake_case (for backward compatibility)
+    const apiKeyId = (req.query.apiKeyId || req.query.api_key_id) as string | undefined;
+    const search = req.query.search as string | undefined;
 
-    const logs = dbManager.getRequestLogs(limit, offset, apiKeyId);
+    const logs = dbManager.getRequestLogs(limit, offset, apiKeyId, search);
+    const totalCount = dbManager.getRequestLogsCount(apiKeyId, search);
 
     // Process logs for table view
     const processedLogs = logs.map(log => {
@@ -51,6 +54,7 @@ router.get('/', (req: Request, res: Response) => {
         limit,
         offset,
         count: logs.length,
+        total: totalCount,
       },
     });
   } catch (error) {

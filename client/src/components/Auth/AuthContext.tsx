@@ -18,9 +18,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check if user has valid token on mount
     const checkAuth = async () => {
       const token = apiClient.getAuthToken();
-      if (token) {
+
+      // If no token exists, try accessing API without auth (for localhost no-auth scenario)
+      if (!token) {
         try {
-          // Verify token by making a request
+          // Try to access health endpoint without token
+          // If server allows (localhost), this will succeed
+          await apiClient.getHealth();
+          setIsAuthenticated(true);
+        } catch (error) {
+          // Auth is required
+          setIsAuthenticated(false);
+        }
+      } else {
+        // Token exists, verify it
+        try {
           await apiClient.getHealth();
           setIsAuthenticated(true);
         } catch (error) {
@@ -29,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsAuthenticated(false);
         }
       }
+
       setIsLoading(false);
     };
 

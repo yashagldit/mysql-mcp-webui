@@ -1,13 +1,31 @@
 import type { Request, Response, NextFunction } from 'express';
 import { getDatabaseManager } from '../../db/database-manager.js';
 
-// Extend Request to include apiKeyId
+// Extend Request to include apiKeyId and localhost flag
 declare global {
   namespace Express {
     interface Request {
       apiKeyId?: string;
+      isLocalhost?: boolean;
     }
   }
+}
+
+/**
+ * Helper function to detect if request is from localhost
+ */
+function isLocalhost(req: Request): boolean {
+  const ip = req.ip || req.socket.remoteAddress || '';
+
+  // Normalize IPv6 localhost variations (e.g., ::ffff:127.0.0.1 -> 127.0.0.1)
+  const normalizedIp = ip.replace('::ffff:', '');
+
+  return (
+    normalizedIp === '127.0.0.1' ||
+    normalizedIp === '::1' ||
+    normalizedIp === 'localhost' ||
+    req.hostname === 'localhost'
+  );
 }
 
 /**
@@ -78,5 +96,28 @@ export function optionalAuthMiddleware(req: Request, res: Response, next: NextFu
   }
 
   // If auth header is present, validate it
+  authMiddleware(req, res, next);
+}
+
+/**
+ * Smart authentication middleware
+ * Bypasses authentication for localhost requests (unless REQUIRE_AUTH_ON_LOCALHOST is true)
+ * Requires authentication for remote requests
+ */
+export function smartAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const requireAuthOnLocalhost = process.env.REQUIRE_AUTH_ON_LOCALHOST === 'true';
+  const fromLocalhost = isLocalhost(req);
+
+  // Mark request as from localhost for logging purposes
+  req.isLocalhost = fromLocalhost;
+
+  // If from localhost and auth not required, bypass authentication
+  if (fromLocalhost && !requireAuthOnLocalhost) {
+    console.log('[Auth] Bypassing authentication for localhost request');
+    next();
+    return;
+  }
+
+  // Otherwise, require authentication
   authMiddleware(req, res, next);
 }

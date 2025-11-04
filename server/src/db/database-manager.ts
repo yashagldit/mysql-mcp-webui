@@ -567,16 +567,27 @@ export class DatabaseManager {
   /**
    * Get request logs with pagination
    */
-  getRequestLogs(limit: number = 100, offset: number = 0, apiKeyId?: string): RequestLog[] {
+  getRequestLogs(limit: number = 100, offset: number = 0, apiKeyId?: string, search?: string): RequestLog[] {
     let query = `
       SELECT * FROM request_logs
     `;
 
     const params: any[] = [];
+    const whereClauses: string[] = [];
 
     if (apiKeyId) {
-      query += ' WHERE api_key_id = ?';
+      whereClauses.push('api_key_id = ?');
       params.push(apiKeyId);
+    }
+
+    if (search) {
+      whereClauses.push('(endpoint LIKE ? OR method LIKE ? OR request_body LIKE ? OR response_body LIKE ?)');
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+
+    if (whereClauses.length > 0) {
+      query += ' WHERE ' + whereClauses.join(' AND ');
     }
 
     query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
@@ -584,6 +595,37 @@ export class DatabaseManager {
 
     const stmt = this.db.prepare(query);
     return stmt.all(...params) as RequestLog[];
+  }
+
+  /**
+   * Get total count of request logs (for pagination)
+   */
+  getRequestLogsCount(apiKeyId?: string, search?: string): number {
+    let query = `
+      SELECT COUNT(*) as count FROM request_logs
+    `;
+
+    const params: any[] = [];
+    const whereClauses: string[] = [];
+
+    if (apiKeyId) {
+      whereClauses.push('api_key_id = ?');
+      params.push(apiKeyId);
+    }
+
+    if (search) {
+      whereClauses.push('(endpoint LIKE ? OR method LIKE ? OR request_body LIKE ? OR response_body LIKE ?)');
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+
+    if (whereClauses.length > 0) {
+      query += ' WHERE ' + whereClauses.join(' AND ');
+    }
+
+    const stmt = this.db.prepare(query);
+    const result = stmt.get(...params) as { count: number };
+    return result.count;
   }
 
   /**

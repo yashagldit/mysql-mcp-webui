@@ -9,14 +9,16 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "npm run build:client && npm run build:server",
+    "build:server": "tsc",
+    "build:client": "cd ../client && npm run build",
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.21.0",
     "express": "^5.0.1",
     "mysql2": "^3.11.5",
     "node-sql-parser": "^5.3.4",

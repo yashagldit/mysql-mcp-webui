@@ -46,9 +46,17 @@ class ApiClient {
       (response) => response,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
+          // Only redirect if we had a token (invalid token scenario)
+          // If no token, the caller is testing for no-auth access (localhost)
+          const hadToken = !!this.authToken;
+
           // Clear invalid token
           this.setAuthToken(null);
-          window.location.href = '/auth';
+
+          // Only auto-redirect if we had a token that was rejected
+          if (hadToken && window.location.pathname !== '/auth') {
+            window.location.href = '/auth';
+          }
         }
         return Promise.reject(error);
       }
@@ -185,11 +193,11 @@ class ApiClient {
   }
 
   // Request logs endpoints (v2.0)
-  async getLogs(params?: { limit?: number; offset?: number; apiKeyId?: string }): Promise<{ logs: RequestLog[]; pagination: { limit: number; offset: number; count: number } }> {
-    const { data } = await this.client.get<ApiResponse<RequestLog[]>>('/logs', { params });
+  async getLogs(params?: { limit?: number; offset?: number; apiKeyId?: string; search?: string }): Promise<{ logs: RequestLog[]; pagination: { limit: number; offset: number; count: number; total: number } }> {
+    const { data } = await this.client.get<any>('/logs', { params });
     return {
       logs: data.data,
-      pagination: { limit: params?.limit || 100, offset: params?.offset || 0, count: data.data.length },
+      pagination: data.pagination || { limit: params?.limit || 100, offset: params?.offset || 0, count: data.data.length, total: data.data.length },
     };
   }
 

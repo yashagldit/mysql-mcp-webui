@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { authMiddleware, optionalAuthMiddleware } from './api/middleware/auth.js';
+import { authMiddleware, optionalAuthMiddleware, smartAuthMiddleware } from './api/middleware/auth.js';
 import { loggingMiddleware } from './api/middleware/logging.js';
 import connectionsRouter from './api/routes/connections.js';
 import databasesRouter from './api/routes/databases.js';
@@ -58,13 +58,13 @@ export function createHttpServer(): Express {
   const mcpServer = getMcpServer();
   mcpServer.setupHttpTransport(app);
 
-  // API routes (all require auth except health)
-  app.use('/api/connections', authMiddleware, connectionsRouter);
-  app.use('/api/connections', authMiddleware, databasesRouter);
-  app.use('/api/query', authMiddleware, queryRouter);
-  app.use('/api', authMiddleware, settingsRouter);
-  app.use('/api/keys', authMiddleware, apiKeysRouter);
-  app.use('/api/logs', authMiddleware, logsRouter);
+  // API routes (use smart auth: bypasses auth for localhost unless REQUIRE_AUTH_ON_LOCALHOST=true)
+  app.use('/api/connections', smartAuthMiddleware, connectionsRouter);
+  app.use('/api/connections', smartAuthMiddleware, databasesRouter);
+  app.use('/api/query', smartAuthMiddleware, queryRouter);
+  app.use('/api', smartAuthMiddleware, settingsRouter);
+  app.use('/api/keys', smartAuthMiddleware, apiKeysRouter);
+  app.use('/api/logs', smartAuthMiddleware, logsRouter);
 
   // Serve static files in production
   if (process.env.NODE_ENV === 'production') {

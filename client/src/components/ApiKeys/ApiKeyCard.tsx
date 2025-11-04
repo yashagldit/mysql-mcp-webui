@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Key, Trash2, Edit, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Badge, Button } from '../Common';
 import { EditKeyModal } from './EditKeyModal';
 import { useRevokeApiKey } from '../../hooks/useApiKeys';
@@ -13,6 +14,7 @@ interface ApiKeyCardProps {
 export const ApiKeyCard: React.FC<ApiKeyCardProps> = ({ apiKey }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const navigate = useNavigate();
 
   const revokeMutation = useRevokeApiKey();
 
@@ -69,7 +71,7 @@ export const ApiKeyCard: React.FC<ApiKeyCardProps> = ({ apiKey }) => {
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => {}}
+            onClick={() => navigate(`/logs?apiKeyId=${apiKey.id}`)}
             fullWidth
           >
             <FileText className="w-4 h-4 mr-1" />
