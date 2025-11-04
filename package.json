@@ -1,0 +1,44 @@
+{
+  "name": "mysql-mcp-webui",
+  "version": "1.0.0",
+  "description": "MySQL MCP server with React-based web UI for live configuration management",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build:client && npm run build:server",
+    "build:server": "npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "start": "npm run start --workspace=server",
+    "start:http": "TRANSPORT=http npm run start --workspace=server",
+    "start:stdio": "TRANSPORT=stdio npm run start --workspace=server",
+    "install:global": "npm run build && npm install -g .",
+    "clean": "rm -rf node_modules server/node_modules client/node_modules server/dist client/dist"
+  },
+  "keywords": [
+    "mcp",
+    "mysql",
+    "database",
+    "claude",
+    "model-context-protocol",
+    "web-ui",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1"
+  }
+}
