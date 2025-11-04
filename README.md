@@ -1,6 +1,10 @@
 # MySQL MCP WebUI
 
-A MySQL MCP (Model Context Protocol) server with a React-based web UI for live configuration management.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
+
+A MySQL MCP (Model Context Protocol) server with a React-based web UI for live configuration management. Enable Claude AI to interact with your MySQL databases through a secure, intuitive interface.
 
 ## Features
 
@@ -12,37 +16,6 @@ A MySQL MCP (Model Context Protocol) server with a React-based web UI for live c
 - **MCP Tools**: Three powerful tools for Claude to interact with your MySQL databases
 - **Secure**: AES-256-GCM password encryption, token-based authentication
 - **Multiple Connections**: Manage multiple MySQL server connections from a single interface
-
-## Project Status
-
-### ✅ Completed (Backend - Phase 1)
-
-- [x] Project setup and structure
-- [x] TypeScript configuration
-- [x] Configuration manager with JSON persistence
-- [x] Password encryption/decryption (AES-256-GCM)
-- [x] Connection manager with pooling
-- [x] Database discovery service
-- [x] Permission validator
-- [x] Query executor with transaction support
-- [x] MCP server with tool definitions
-- [x] REST API routes (connections, databases, queries, settings)
-- [x] Express HTTP server setup
-- [x] Authentication middleware
-- [x] Server successfully compiles
-
-### 🚧 In Progress
-
-- [ ] Frontend React application
-- [ ] Testing and validation
-- [ ] Documentation completion
-
-### 📋 Upcoming
-
-- [ ] End-to-end testing
-- [ ] Production deployment setup
-- [ ] Performance optimization
-- [ ] Advanced features (query history, favorites, etc.)
 
 ## Quick Start
 
@@ -157,23 +130,76 @@ Switch to a different database in the active connection.
 
 - `POST /mcp` - MCP protocol endpoint
 
-## Configuration
+## MCP Client Configuration
 
-Configuration is stored in `/config/config.json`:
+### For Claude Desktop
+
+Add one of these configurations to your Claude Desktop config file (`~/.claude.json` or `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+#### Option 1: HTTP Mode (For Already-Running Server)
+
+Use this when the server is already running (via `npm start` or docker):
 
 ```json
 {
-  "serverToken": "generated-secure-token",
-  "transport": "http",
-  "httpPort": 3000,
-  "connections": {},
-  "activeConnection": "conn_id"
+  "mcpServers": {
+    "mysql-mcp": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY_HERE"
+      }
+    }
+  }
 }
 ```
 
+**When to use:**
+- Server is already running independently
+- Remote server access
+- Production deployments
+- Docker containers
+
+#### Option 2: Stdio Mode (Let Claude Desktop Manage Server)
+
+Use this to let Claude Desktop start and stop the server automatically:
+
+```json
+{
+  "mcpServers": {
+    "mysql-mcp": {
+      "command": "node",
+      "args": [
+        "/path/to/mysql-mcp-webui/server/dist/index.js"
+      ],
+      "env": {
+        "TRANSPORT": "stdio",
+        "AUTH_TOKEN": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+**When to use:**
+- Local development
+- Want automatic server lifecycle management
+- Simpler setup (no need to manually start server)
+
+Replace `YOUR_API_KEY_HERE` with an API key from the Settings page.
+
+## Configuration
+
+Configuration is stored in SQLite database at `data/mysql-mcp.db`:
+
+- **API Keys**: Multiple authentication keys with individual activation
+- **Connections**: MySQL server connection details (encrypted passwords)
+- **Databases**: Per-database permissions and metadata
+- **Settings**: Server configuration (transport mode, port, etc.)
+
 ### Environment Variables
 
-- `TRANSPORT` - Transport mode: `stdio` or `http` (default: from config)
+- `TRANSPORT` - Transport mode: `stdio` or `http` (default: http)
 - `HTTP_PORT` - HTTP server port (default: 3000)
 - `AUTH_TOKEN` - Authentication token (required for stdio mode)
 - `NODE_ENV` - Environment: `development` or `production`
@@ -226,7 +252,7 @@ Configuration is stored in `/config/config.json`:
 - node-sql-parser
 - Zod for validation
 
-### Frontend (Upcoming)
+### Frontend
 - React 18
 - TypeScript 5.x
 - Vite 6.x
@@ -248,10 +274,10 @@ mysql-mcp-webui/
 │   │   ├── mcp/      # MCP server
 │   │   └── types/    # TypeScript types
 │   └── dist/         # Compiled output
-├── client/           # Frontend (in progress)
+├── client/           # React frontend
 │   └── src/
-└── config/           # Runtime configuration
-    └── config.json
+└── data/             # Runtime data
+    └── mysql-mcp.db  # SQLite configuration database
 ```
 
 ### Building
@@ -269,38 +295,43 @@ npm run build
 
 ## Roadmap
 
-### Phase 1: Backend Foundation ✅
-- Core backend infrastructure
-- MCP server implementation
-- REST API
-- Database layer
+### Current Features ✅
+- Full MCP server implementation with three powerful tools
+- Complete REST API for connection and database management
+- React-based web UI for configuration management
+- Multi-API key authentication system
+- Request/response logging
+- Dual transport support (stdio/http)
+- Encrypted password storage
+- Per-database permission management
 
-### Phase 2: Frontend (In Progress)
-- React application setup
-- Connection management UI
-- Database management UI
-- Permissions panel
-- Query tester
-- Settings page
-
-### Phase 3: Testing & Polish
-- Unit tests
-- Integration tests
-- E2E tests
-- Performance optimization
-- Documentation
-
-### Phase 4: Advanced Features
-- Query history
-- Favorite queries
+### Planned Features
+- Query history and favorites
 - Advanced permissions (table/column level)
-- Monitoring and metrics
-- Multi-user support
-
-## License
-
-MIT
+- Query result export (CSV, JSON, etc.)
+- Database schema explorer
+- Monitoring and metrics dashboard
+- Multi-user support with role-based access
+- Query performance analysis
+- Backup and restore management
 
 ## Contributing
 
-Contributions are welcome! Please see [PLAN.md](PLAN.md) for detailed architecture and [TODO.md](TODO.md) for task tracking.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.
+
+For detailed architecture information, see [CLAUDE.md](CLAUDE.md).
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- Report bugs and request features via [GitHub Issues](https://github.com/yashagldit/mysql-mcp-webui/issues)
+- For questions and discussions, use [GitHub Discussions](https://github.com/yashagldit/mysql-mcp-webui/discussions)
+
+## Acknowledgments
+
+- Created and maintained by [Yash Agarwal](https://github.com/yashagldit)
+- Built with [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
+- Powered by [Claude AI](https://claude.ai/)

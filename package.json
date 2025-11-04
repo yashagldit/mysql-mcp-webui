@@ -29,7 +29,15 @@
     "web-ui",
     "react"
   ],
-  "author": "",
+  "author": "Yash Agarwal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yashagldit/mysql-mcp-webui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yashagldit/mysql-mcp-webui/issues"
+  },
+  "homepage": "https://github.com/yashagldit/mysql-mcp-webui#readme",
   "license": "MIT",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

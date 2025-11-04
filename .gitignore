@@ -14,8 +14,10 @@ build/
 .env.local
 .env.*.local
 
-# Configuration (contains sensitive data)
+# Configuration and data (contains sensitive data)
 config/config.json
+data/
+*.key
 
 # IDE
 .vscode/

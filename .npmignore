@@ -1,0 +1,50 @@
+# Source files (we publish the built dist)
+server/src/
+client/src/
+
+# Configuration and data files
+data/
+*.key
+.env
+.env.*
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Documentation for development
+CLAUDE.md
+PLAN.md
+TODO.md
+MIGRATION.md
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tsbuildinfo
+.cache/
+
+# Dependencies (users will install)
+node_modules/
