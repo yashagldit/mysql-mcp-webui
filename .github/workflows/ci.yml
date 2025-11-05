@@ -102,7 +102,7 @@ jobs:
         run: |
           mkdir -p release
           cp -r server/dist release/server
-          cp -r client/dist release/client
+          cp -r server/public release/public
           cp package.json package-lock.json README.md release/
           cd release
           tar -czf ../mysql-mcp-webui-${{ github.ref_name }}.tar.gz .
