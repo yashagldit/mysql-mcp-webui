@@ -39,13 +39,13 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
   return (
     <div className="space-y-4">
       {/* Mode Tabs */}
-      <div className="flex space-x-2 border-b border-gray-200">
+      <div className="flex space-x-2 border-b border-gray-200 dark:border-gray-700">
         <button
           onClick={() => setMode('http')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             mode === 'http'
               ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
           HTTP Mode
@@ -55,7 +55,7 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             mode === 'stdio'
               ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
           Stdio Mode
@@ -65,7 +65,7 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
       {/* Config Snippet */}
       {mode === 'http' ? (
         <div>
-          <div className="mb-2 text-sm text-gray-600">
+          <div className="mb-2 text-sm text-gray-600 dark:text-gray-400">
             <p className="font-medium mb-1">HTTP Mode (Recommended for Remote/Running Server)</p>
             <p>Connect to an already-running MCP server over HTTP. Use this if:</p>
             <ul className="list-disc list-inside mt-1 text-xs space-y-0.5">
@@ -75,13 +75,13 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
             </ul>
           </div>
           <CodeBlock code={httpConfig} language="json" />
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Note: Make sure the server is running before connecting (npm start or docker run)
           </p>
         </div>
       ) : (
         <div>
-          <div className="mb-2 text-sm text-gray-600">
+          <div className="mb-2 text-sm text-gray-600 dark:text-gray-400">
             <p className="font-medium mb-1">Stdio Mode (Recommended for Local/Managed)</p>
             <p>Let Claude Desktop start and manage the MCP server. Use this if:</p>
             <ul className="list-disc list-inside mt-1 text-xs space-y-0.5">
@@ -91,7 +91,7 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
             </ul>
           </div>
           <CodeBlock code={stdioConfig} language="json" />
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Note: Update the path to point to your actual installation directory
           </p>
         </div>

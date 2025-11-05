@@ -35,8 +35,8 @@ export const ApiKeyCard: React.FC<ApiKeyCardProps> = ({ apiKey }) => {
             <Key className="w-6 h-6 text-purple-600" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">{apiKey.name}</h3>
-            <p className="text-xs text-gray-500 font-mono mt-1">{apiKey.keyPreview}</p>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{apiKey.name}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1">{apiKey.keyPreview}</p>
           </div>
           {apiKey.isActive && (
             <Badge variant="success" size="sm">
@@ -47,13 +47,13 @@ export const ApiKeyCard: React.FC<ApiKeyCardProps> = ({ apiKey }) => {
 
         <div className="space-y-2 text-sm mb-4">
           <div className="flex justify-between">
-            <span className="text-gray-600">Created:</span>
-            <span className="text-gray-900">{formatDate(apiKey.created_at)}</span>
+            <span className="text-gray-600 dark:text-gray-400">Created:</span>
+            <span className="text-gray-900 dark:text-gray-100">{formatDate(apiKey.created_at)}</span>
           </div>
           {apiKey.last_used_at && (
             <div className="flex justify-between">
-              <span className="text-gray-600">Last Used:</span>
-              <span className="text-gray-900">{formatRelativeTime(apiKey.last_used_at)}</span>
+              <span className="text-gray-600 dark:text-gray-400">Last Used:</span>
+              <span className="text-gray-900 dark:text-gray-100">{formatRelativeTime(apiKey.last_used_at)}</span>
             </div>
           )}
         </div>
@@ -100,8 +100,8 @@ export const ApiKeyCard: React.FC<ApiKeyCardProps> = ({ apiKey }) => {
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Revoke API Key</h3>
-            <p className="text-gray-600 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Revoke API Key</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
               Are you sure you want to revoke "{apiKey.name}"? This will immediately invalidate the
               key and cannot be undone.
             </p>

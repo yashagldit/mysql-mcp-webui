@@ -72,25 +72,25 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
             <Server className="w-6 h-6 text-blue-600" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">{connection.name}</h3>
-            <p className="text-sm text-gray-600">{connection.host}:{connection.port}</p>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{connection.name}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{connection.host}:{connection.port}</p>
           </div>
         </div>
 
         <div className="space-y-2 text-sm mb-4">
           <div className="flex justify-between">
-            <span className="text-gray-600">User:</span>
-            <span className="font-medium text-gray-900">{connection.user}</span>
+            <span className="text-gray-600 dark:text-gray-400">User:</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{connection.user}</span>
           </div>
           {connection.databaseCount !== undefined && (
             <div className="flex justify-between">
-              <span className="text-gray-600">Databases:</span>
-              <span className="font-medium text-gray-900">{connection.databaseCount}</span>
+              <span className="text-gray-600 dark:text-gray-400">Databases:</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{connection.databaseCount}</span>
             </div>
           )}
           {connection.activeDatabase && (
             <div className="flex justify-between">
-              <span className="text-gray-600">Active DB:</span>
+              <span className="text-gray-600 dark:text-gray-400">Active DB:</span>
               <Badge size="sm">{connection.activeDatabase}</Badge>
             </div>
           )}
@@ -174,8 +174,8 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Connection</h3>
-            <p className="text-gray-600 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Delete Connection</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
               Are you sure you want to delete "{connection.name}"? This action cannot be undone.
             </p>
             <div className="flex space-x-2">

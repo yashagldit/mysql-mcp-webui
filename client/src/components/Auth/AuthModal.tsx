@@ -54,8 +54,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
             <Key className="w-6 h-6 text-blue-600" />
           )}
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to MySQL MCP WebUI</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome to MySQL MCP WebUI</h2>
+        <p className="text-gray-600 dark:text-gray-400">
           {mode === 'credentials'
             ? 'Please enter your credentials to continue'
             : 'Please enter your API key to continue'}
@@ -63,14 +63,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
       </div>
 
       {/* Mode Tabs */}
-      <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+      <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
         <button
           type="button"
           onClick={() => { setMode('credentials'); setError(''); }}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
             mode === 'credentials'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
           Username & Password
@@ -80,8 +80,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
           onClick={() => { setMode('token'); setError(''); }}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
             mode === 'token'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
           API Token
@@ -134,7 +134,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
           {mode === 'credentials' ? 'Sign In' : 'Authenticate'}
         </Button>
 
-        <div className="text-sm text-gray-500 text-center">
+        <div className="text-sm text-gray-500 dark:text-gray-400 text-center">
           {mode === 'credentials' ? (
             <p>Default credentials: <span className="font-mono">admin / admin</span></p>
           ) : (

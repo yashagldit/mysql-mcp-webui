@@ -12,7 +12,7 @@ export const SqlEditor: React.FC<SqlEditorProps> = ({ value, onChange }) => {
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       <Editor
         height="300px"
         defaultLanguage="sql"

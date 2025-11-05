@@ -102,7 +102,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   if (rows.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         {emptyMessage}
       </div>
     );
@@ -111,16 +111,16 @@ export const DataTable: React.FC<DataTableProps> = ({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Table */}
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-900">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col}
                   onClick={() => handleSort(col)}
-                  className={`px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap ${
-                    enableSort ? 'cursor-pointer hover:bg-gray-100 select-none' : ''
+                  className={`px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap ${
+                    enableSort ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none' : ''
                   }`}
                 >
                   <div className="flex items-center gap-1">
@@ -137,9 +137,9 @@ export const DataTable: React.FC<DataTableProps> = ({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {paginatedRows.map((row, idx) => (
-              <tr key={idx} className="hover:bg-gray-50">
+              <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 {columns.map((col) => {
                   const value = row[col];
                   const displayValue = value === null
@@ -153,11 +153,11 @@ export const DataTable: React.FC<DataTableProps> = ({
                   return (
                     <td
                       key={col}
-                      className={`px-4 py-3 text-sm text-gray-900 ${isLongValue ? 'max-w-xs' : 'whitespace-nowrap'}`}
+                      className={`px-4 py-3 text-sm text-gray-900 dark:text-gray-100 ${isLongValue ? 'max-w-xs' : 'whitespace-nowrap'}`}
                       title={displayValue}
                     >
                       {value === null ? (
-                        <span className="text-gray-400 italic">NULL</span>
+                        <span className="text-gray-400 dark:text-gray-500 italic">NULL</span>
                       ) : (
                         <span className={`${isLongValue ? 'block truncate' : ''}`}>
                           {displayValue}
@@ -175,7 +175,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       {/* Pagination */}
       {enablePagination && totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, rows.length)} of {rows.length} rows
           </div>
           <div className="flex items-center gap-2">
@@ -188,7 +188,7 @@ export const DataTable: React.FC<DataTableProps> = ({
             >
               Previous
             </Button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
               Page {currentPage} of {totalPages}
             </span>
             <Button

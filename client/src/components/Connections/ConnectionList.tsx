@@ -29,8 +29,8 @@ export const ConnectionList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">MySQL Connections</h1>
-          <p className="text-gray-600 mt-1">Manage your MySQL server connections</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">MySQL Connections</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your MySQL server connections</p>
         </div>
         <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
           Add Connection
@@ -39,7 +39,7 @@ export const ConnectionList: React.FC = () => {
 
       {connections && connections.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-600 mb-4">No connections configured yet</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">No connections configured yet</p>
           <Button onClick={() => setShowAddModal(true)}>Add Your First Connection</Button>
         </div>
       ) : (

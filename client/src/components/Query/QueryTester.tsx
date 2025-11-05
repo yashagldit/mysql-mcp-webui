@@ -43,10 +43,10 @@ export const QueryTester: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Query Tester</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Query Tester</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <DatabaseIcon className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-600">Connected to:</span>
+            <DatabaseIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <span className="text-sm text-gray-600 dark:text-gray-400">Connected to:</span>
             <Badge variant="info">{activeState.connectionName}</Badge>
             <span className="text-gray-400">/</span>
             <Badge variant="success">{activeState.database}</Badge>
@@ -100,8 +100,8 @@ export const QueryTester: React.FC = () => {
       {executeMutation.isSuccess && executeMutation.data && (
         <Card className="overflow-hidden">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Results</h3>
-            <div className="flex items-center space-x-4 text-sm text-gray-600">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Results</h3>
+            <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
               <span>
                 <span className="font-medium">{executeMutation.data.rowCount}</span> row
                 {executeMutation.data.rowCount !== 1 ? 's' : ''}

@@ -21,8 +21,8 @@ export const DatabaseQuickSwitch: React.FC = () => {
             <Database className="w-5 h-5 text-gray-400" />
           </div>
           <div>
-            <h3 className="font-medium text-gray-900">Quick Database Switch</h3>
-            <p className="text-sm text-gray-500">No active connection</p>
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">Quick Database Switch</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No active connection</p>
           </div>
         </div>
       </Card>
@@ -52,8 +52,8 @@ export const DatabaseQuickSwitch: React.FC = () => {
             <Database className="w-5 h-5 text-indigo-600" />
           </div>
           <div className="flex-1">
-            <h3 className="font-medium text-gray-900">Quick Database Switch</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">Quick Database Switch</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {databases?.length || 0} database(s) available
             </p>
           </div>
@@ -64,10 +64,10 @@ export const DatabaseQuickSwitch: React.FC = () => {
           <button
             onClick={() => setIsOpen(!isOpen)}
             disabled={databasesLoading || !databases || databases.length === 0}
-            className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Current:
               </span>
               <Badge variant="success">
@@ -83,7 +83,7 @@ export const DatabaseQuickSwitch: React.FC = () => {
 
           {/* Dropdown Menu */}
           {isOpen && databases && databases.length > 0 && (
-            <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+            <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
               {databases.map((db) => {
                 const isActive = db.name === activeState.database;
                 const isSwitching =
@@ -95,11 +95,11 @@ export const DatabaseQuickSwitch: React.FC = () => {
                     key={db.name}
                     onClick={() => handleDatabaseSwitch(db.name)}
                     disabled={isActive || isSwitching}
-                    className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors disabled:opacity-50 border-b border-gray-100 last:border-b-0"
+                    className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                   >
                     <div className="flex items-center gap-2">
-                      <Database className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-900">
+                      <Database className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {db.name}
                       </span>
                     </div>
@@ -126,7 +126,7 @@ export const DatabaseQuickSwitch: React.FC = () => {
 
         {/* Loading state */}
         {databasesLoading && (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>Loading databases...</span>
           </div>
@@ -135,8 +135,8 @@ export const DatabaseQuickSwitch: React.FC = () => {
         {/* Empty state */}
         {!databasesLoading && databases && databases.length === 0 && (
           <div className="text-center py-4">
-            <p className="text-sm text-gray-500">No databases found</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400">No databases found</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Try discovering databases for this connection
             </p>
           </div>

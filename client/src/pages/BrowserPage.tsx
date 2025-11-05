@@ -23,12 +23,12 @@ export const BrowserPage: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Database Browser</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Database Browser</h1>
         <div className="flex items-center space-x-2 mt-2">
-          <DatabaseIcon className="w-4 h-4 text-gray-500" />
-          <span className="text-sm text-gray-600">Connected to:</span>
+          <DatabaseIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          <span className="text-sm text-gray-600 dark:text-gray-400">Connected to:</span>
           <Badge variant="info">{activeState.connectionName}</Badge>
-          <span className="text-gray-400">/</span>
+          <span className="text-gray-400 dark:text-gray-500">/</span>
           <DatabaseSwitcher />
         </div>
       </div>
@@ -60,10 +60,10 @@ export const BrowserPage: React.FC = () => {
           {selectedTable ? (
             <TableBrowser tableName={selectedTable} />
           ) : (
-            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-              <DatabaseIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Table</h3>
-              <p className="text-gray-600">
+            <div className="bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-12 text-center">
+              <DatabaseIcon className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Select a Table</h3>
+              <p className="text-gray-600 dark:text-gray-400">
                 Choose a table from the list on the left to browse its data and structure
               </p>
             </div>

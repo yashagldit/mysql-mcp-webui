@@ -67,9 +67,9 @@ export const DatabaseSwitcher: React.FC = () => {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+        <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
           <div className="p-2">
-            <div className="text-xs font-medium text-gray-500 px-2 py-1 mb-1">
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2 py-1 mb-1">
               Switch Database
             </div>
             {databases.map((db) => {
@@ -85,18 +85,18 @@ export const DatabaseSwitcher: React.FC = () => {
                   disabled={isActive || isSwitching}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
                     isActive
-                      ? 'bg-green-50 text-green-900'
-                      : 'hover:bg-gray-100 text-gray-700'
+                      ? 'bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   } disabled:opacity-50`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <Database className="w-4 h-4 flex-shrink-0 text-gray-400" />
+                    <Database className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
                     <span className="font-medium truncate">{db.name}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                     {/* Permission count */}
                     {db.permissions && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {Object.values(db.permissions).filter(Boolean).length}
                       </span>
                     )}

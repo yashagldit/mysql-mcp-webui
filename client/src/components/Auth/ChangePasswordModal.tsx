@@ -67,10 +67,10 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
         <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
           <Lock className="w-6 h-6 text-yellow-600" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           {isForced ? 'Change Your Password' : 'Update Password'}
         </h2>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           {isForced
             ? 'You must change your password before continuing'
             : 'Update your password to keep your account secure'}
@@ -143,7 +143,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
         </div>
 
         {newPassword.length > 0 && newPassword.length < 4 && (
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
             Password must be at least 4 characters long
           </p>
         )}

@@ -43,7 +43,7 @@ export const Toggle: React.FC<ToggleProps> = ({
         <div
           className={`
             ${styles.switch} rounded-full transition-colors duration-200
-            ${checked ? 'bg-blue-600' : 'bg-gray-300'}
+            ${checked ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
           `}
         />
@@ -56,7 +56,7 @@ export const Toggle: React.FC<ToggleProps> = ({
         />
       </div>
       {label && (
-        <span className={`ml-3 text-sm text-gray-700 ${disabled ? 'opacity-50' : ''}`}>
+        <span className={`ml-3 text-sm text-gray-700 dark:text-gray-300 ${disabled ? 'opacity-50' : ''}`}>
           {label}
         </span>
       )}
