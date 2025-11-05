@@ -12,7 +12,7 @@
     "build": "npm run build:client && npm run build:server",
     "build:server": "tsc",
     "build:client": "cd ../client && npm run build",
-    "start": "node dist/index.js",
+    "start": "node -r dotenv/config dist/index.js dotenv_config_path=../.env",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""
