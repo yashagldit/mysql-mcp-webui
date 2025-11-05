@@ -66,6 +66,72 @@ export interface QueryResult {
   executionTime: string;
 }
 
+// Browse types
+export interface TableListResponse {
+  tables: string[];
+}
+
+export interface TableColumn {
+  Field: string;
+  Type: string;
+  Null: string;
+  Key: string;
+  Default: string | null;
+  Extra: string;
+}
+
+export interface TableStructureResponse {
+  tableName: string;
+  columns: TableColumn[];
+}
+
+export interface TableDataResponse {
+  tableName: string;
+  rows: any[];
+  columns: string[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface TableInfoResponse {
+  table_name: string;
+  engine: string;
+  table_rows: number;
+  avg_row_length: number;
+  data_length: number;
+  index_length: number;
+  auto_increment: number | null;
+  create_time: string;
+  update_time: string | null;
+  table_collation: string;
+  table_comment: string;
+}
+
+export interface TableIndex {
+  Table: string;
+  Non_unique: number;
+  Key_name: string;
+  Seq_in_index: number;
+  Column_name: string;
+  Collation: string;
+  Cardinality: number;
+  Sub_part: number | null;
+  Packed: string | null;
+  Null: string;
+  Index_type: string;
+  Comment: string;
+  Index_comment: string;
+}
+
+export interface TableIndexesResponse {
+  tableName: string;
+  indexes: TableIndex[];
+}
+
 // API Key types (v2.0)
 export interface ApiKey {
   id: string;

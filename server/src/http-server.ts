@@ -14,6 +14,7 @@ import apiKeysRouter from './api/routes/api-keys.js';
 import logsRouter from './api/routes/logs.js';
 import authRouter from './api/routes/auth.js';
 import usersRouter from './api/routes/users.js';
+import browseRouter from './api/routes/browse.js';
 import { getMcpServer } from './mcp/server.js';
 import type { EnvironmentConfig } from './config/environment.js';
 
@@ -86,6 +87,7 @@ export function createHttpServer(config: EnvironmentConfig): Express {
   app.use('/api/connections', smartAuthMiddleware, connectionsRouter);
   app.use('/api/connections', smartAuthMiddleware, databasesRouter);
   app.use('/api/query', smartAuthMiddleware, queryRouter);
+  app.use('/api/browse', smartAuthMiddleware, browseRouter);
   app.use('/api', smartAuthMiddleware, settingsRouter);
   app.use('/api/keys', smartAuthMiddleware, apiKeysRouter);
   app.use('/api/logs', smartAuthMiddleware, logsRouter);
