@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Database as DatabaseIcon } from 'lucide-react';
 import { TableList, TableBrowser } from '../components/Browse';
-import { Alert, Badge } from '../components/Common';
+import { Alert, Badge, DatabaseSwitcher } from '../components/Common';
 import { useActiveState } from '../hooks/useActiveState';
 
 export const BrowserPage: React.FC = () => {
@@ -29,7 +29,7 @@ export const BrowserPage: React.FC = () => {
           <span className="text-sm text-gray-600">Connected to:</span>
           <Badge variant="info">{activeState.connectionName}</Badge>
           <span className="text-gray-400">/</span>
-          <Badge variant="success">{activeState.database}</Badge>
+          <DatabaseSwitcher />
         </div>
       </div>
 

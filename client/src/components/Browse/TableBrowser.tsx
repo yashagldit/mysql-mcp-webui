@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Table2, Database as DatabaseIcon, Info, Key, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Play } from 'lucide-react';
-import { Card, Badge, Button, Spinner, Alert } from '../Common';
+import { Card, Badge, Button, Spinner, Alert, DataTable } from '../Common';
 import { useTableStructure, useTableData, useTableInfo } from '../../hooks/useBrowse';
 import { useExecuteQuery } from '../../hooks/useQuery';
 
@@ -389,46 +389,14 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                       </div>
                     </div>
 
-                    {executeMutation.data.rows.length > 0 ? (
-                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              {executeMutation.data.fields.map((field) => (
-                                <th
-                                  key={field}
-                                  className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap"
-                                >
-                                  {field}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {executeMutation.data.rows.map((row, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50">
-                                {executeMutation.data.fields.map((field) => {
-                                  const value = (row as any)[field];
-                                  return (
-                                    <td key={field} className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                                      {value === null ? (
-                                        <span className="text-gray-400 italic">NULL</span>
-                                      ) : (
-                                        String(value)
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        Query executed successfully but returned no rows
-                      </div>
-                    )}
+                    <DataTable
+                      columns={executeMutation.data.fields}
+                      rows={executeMutation.data.rows}
+                      pageSize={50}
+                      enableSort={true}
+                      enablePagination={true}
+                      emptyMessage="Query executed successfully but returned no rows"
+                    />
                   </div>
                 )}
               </div>

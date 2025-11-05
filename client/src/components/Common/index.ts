@@ -5,6 +5,7 @@ export { Toggle } from './Toggle';
 export { Badge } from './Badge';
 export { Card } from './Card';
 export { Table } from './Table';
+export { DataTable } from './DataTable';
 export { CodeBlock } from './CodeBlock';
 export { Alert } from './Alert';
 export { Spinner, LoadingScreen } from './Spinner';
