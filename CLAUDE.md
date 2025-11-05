@@ -151,11 +151,19 @@ Key files:
 - Master key stored in [data/master.key](data/master.key)
 - Encryption/decryption in [server/src/config/crypto.ts](server/src/config/crypto.ts)
 
-**Authentication**
-- Multi-API key system (v2.0)
-- Token-based authentication for all API and MCP requests
+**User Authentication (v3.1)**
+- Dual authentication: JWT for WebUI users + API keys for MCP/programmatic access
+- User passwords hashed with bcrypt (10 salt rounds)
+- JWT tokens stored in httpOnly cookies with configurable expiration
+- Forced password change on first login for default admin account
+- Secure password change flow with current password validation
+
+**Authentication Flow**
+- Multi-API key system for MCP tools and programmatic access (v2.0)
+- JWT authentication for WebUI user logins (v3.1)
+- Auth middleware tries: JWT cookie → JWT header → API key header
 - Constant-time comparison prevents timing attacks
-- Localhost bypass available in development mode
+- No localhost bypass (always requires authentication for security)
 
 **Permission Validation**
 - Per-database, per-operation permissions (SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, TRUNCATE)
@@ -173,15 +181,21 @@ Key files:
 - [server/src/mcp/handlers.ts](server/src/mcp/handlers.ts) - MCP tool implementations with dual-mode support (v3.0)
 - [server/src/mcp/server.ts](server/src/mcp/server.ts) - MCP server factory with transport-specific setup
 
-### Configuration & Security (v3.0)
-- [server/src/config/environment.ts](server/src/config/environment.ts) - Centralized environment variable validation
-- [server/src/config/tls.ts](server/src/config/tls.ts) - HTTPS/TLS certificate loading
-- [server/src/api/middleware/rate-limit.ts](server/src/api/middleware/rate-limit.ts) - Rate limiting middleware
+### Configuration & Security
+- [server/src/config/environment.ts](server/src/config/environment.ts) - Centralized environment variable validation (v3.0)
+- [server/src/config/auth-utils.ts](server/src/config/auth-utils.ts) - JWT and password hashing utilities (v3.1)
+- [server/src/config/tls.ts](server/src/config/tls.ts) - HTTPS/TLS certificate loading (v3.0)
+- [server/src/api/middleware/rate-limit.ts](server/src/api/middleware/rate-limit.ts) - Rate limiting middleware (v3.0)
+- [server/src/api/middleware/auth.ts](server/src/api/middleware/auth.ts) - Dual authentication middleware (v3.1)
+- [server/src/api/routes/auth.ts](server/src/api/routes/auth.ts) - Authentication endpoints (v3.1)
+- [server/src/api/routes/users.ts](server/src/api/routes/users.ts) - User management endpoints (v3.1)
 
 ### Frontend Core
 - [client/src/App.tsx](client/src/App.tsx) - React app structure with routing
-- [client/src/api/client.ts](client/src/api/client.ts) - Axios API client singleton with auth interceptor
-- [client/src/contexts/AuthContext.tsx](client/src/contexts/AuthContext.tsx) - Authentication state management
+- [client/src/api/client.ts](client/src/api/client.ts) - Axios API client with cookie support (v3.1)
+- [client/src/components/Auth/AuthContext.tsx](client/src/components/Auth/AuthContext.tsx) - Dual authentication state management (v3.1)
+- [client/src/components/Auth/AuthModal.tsx](client/src/components/Auth/AuthModal.tsx) - Login modal with username/password and token tabs (v3.1)
+- [client/src/components/Auth/ChangePasswordModal.tsx](client/src/components/Auth/ChangePasswordModal.tsx) - Password change with forced change support (v3.1)
 
 ## REST API Structure
 
@@ -191,6 +205,8 @@ The API follows consistent response format:
 ```
 
 API routes are organized by feature in [server/src/api/routes/](server/src/api/routes/):
+- `auth.ts` - User authentication (login, logout, change-password, me) (v3.1)
+- `users.ts` - User management CRUD operations (v3.1)
 - `connections.ts` - Connection CRUD and testing
 - `databases.ts` - Database listing and permissions
 - `query.ts` - SQL query execution
@@ -203,8 +219,10 @@ API routes are organized by feature in [server/src/api/routes/](server/src/api/r
 React Query hooks in [client/src/hooks/](client/src/hooks/) wrap API calls:
 - Components use custom hooks (e.g., `useConnections()`, `useDatabases()`)
 - Hooks use `@tanstack/react-query` for caching and state management
-- API client in [client/src/api/client.ts](client/src/api/client.ts) handles all HTTP requests
-- Authentication context provides API key across the app
+- API client in [client/src/api/client.ts](client/src/api/client.ts) handles all HTTP requests with cookie support
+- AuthContext provides dual authentication: JWT (username/password) or API token (v3.1)
+- JWT tokens stored in httpOnly cookies, API tokens in Authorization headers
+- User state managed in AuthContext with login/logout/refreshUser methods
 
 ## Environment Variables
 
@@ -212,7 +230,11 @@ React Query hooks in [client/src/hooks/](client/src/hooks/) wrap API calls:
 - `TRANSPORT` - Transport mode: `stdio` or `http` (default: http)
 - `HTTP_PORT` - HTTP server port (default: 3000)
 - `NODE_ENV` - Environment: `development` or `production`
-- `AUTH_TOKEN` - Authentication token (required for stdio mode only)
+- `AUTH_TOKEN` - API key for authentication (required for stdio mode only)
+
+**JWT Authentication (v3.1 - HTTP mode only):**
+- `JWT_SECRET` - Secret for JWT token signing (32+ characters, optional in HTTP development, not used in stdio mode)
+- `JWT_EXPIRES_IN` - JWT token expiration time (default: 7d, examples: 1h, 24h, 30d)
 
 **HTTPS/TLS (v3.0):**
 - `ENABLE_HTTPS` - Enable HTTPS (default: false)
@@ -225,6 +247,8 @@ React Query hooks in [client/src/hooks/](client/src/hooks/) wrap API calls:
 - `RATE_LIMIT_MAX_REQUESTS` - Max requests per window (default: 100)
 
 All environment variables are validated at startup in [server/src/config/environment.ts](server/src/config/environment.ts).
+
+**Note**: JWT authentication is only used in HTTP mode for WebUI user logins. Stdio mode (MCP) uses API key authentication via AUTH_TOKEN.
 
 In development, the client runs on port 5173 (Vite) and proxies API requests to the server on port 3000.
 
@@ -255,6 +279,40 @@ The three MCP tools are defined in [server/src/mcp/tools.ts](server/src/mcp/tool
 Tool handlers receive database and connection managers as dependencies (dependency injection pattern).
 
 ## Recent Changes
+
+### v3.1 - User Authentication & Multi-User Support
+
+**Dual Authentication System:**
+- Added JWT-based username/password authentication for WebUI ([server/src/config/auth-utils.ts](server/src/config/auth-utils.ts))
+- Implemented bcrypt password hashing with 10 salt rounds
+- Created users table in SQLite with secure password storage
+- Maintained API key authentication for MCP tools (backward compatible)
+- JWT tokens stored in httpOnly cookies for session management
+
+**User Management:**
+- Default admin/admin credentials with forced password change on first login
+- Full CRUD operations for user management via `/api/users` endpoints
+- Secure password change flow with current password validation
+- Admin password reset capability
+
+**Backend Implementation:**
+- Added auth routes: login, logout, change-password, me ([server/src/api/routes/auth.ts](server/src/api/routes/auth.ts))
+- Added user routes: full CRUD operations ([server/src/api/routes/users.ts](server/src/api/routes/users.ts))
+- Updated auth middleware for dual authentication (JWT cookie, JWT header, or API key) ([server/src/api/middleware/auth.ts](server/src/api/middleware/auth.ts))
+- Added user tracking to request logs with optional `user_id` field
+- JWT_SECRET only required for HTTP mode, not stdio mode (MCP uses API keys)
+
+**Frontend Implementation:**
+- Updated AuthModal with tabs for username/password vs API token login
+- Added ChangePasswordModal with forced change support ([client/src/components/Auth/ChangePasswordModal.tsx](client/src/components/Auth/ChangePasswordModal.tsx))
+- Enhanced AuthContext for dual login modes and user state management
+- Cookie-based authentication with axios withCredentials support
+
+**Configuration:**
+- `JWT_SECRET` environment variable (32+ characters, optional in development HTTP mode)
+- `JWT_EXPIRES_IN` environment variable (default: 7d)
+- Auto-generates default JWT secret in development, required in production HTTP mode
+- Stdio mode doesn't use JWT (uses API key authentication only)
 
 ### v3.0 - Multi-Instance Support & Production Features
 

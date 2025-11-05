@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { getDatabase } from './schema.js';
 import { generateToken, encryptPassword, decryptPassword } from '../config/crypto.js';
+import { hashPassword } from '../config/auth-utils.js';
 import type {
   ConnectionConfig,
   DatabaseConfig,
@@ -19,9 +20,20 @@ export interface ApiKey {
   is_active: boolean;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  password_hash: string;
+  created_at: number;
+  last_login_at: number | null;
+  is_active: boolean;
+  must_change_password: boolean;
+}
+
 export interface RequestLog {
   id: number;
-  api_key_id: string;
+  api_key_id: string | null;
+  user_id: string | null;
   endpoint: string;
   method: string;
   request_body: string | null;
@@ -111,6 +123,16 @@ export class DatabaseManager {
       }
     }
 
+    // Create default admin user if no users exist
+    // Note: Password hashing is done lazily on first access to avoid blocking initialization
+    if (!this.hasUsers()) {
+      const defaultUserId = 'user_default_admin';
+      // Store a flag to create admin user - actual creation happens async
+      this.setSetting('needsAdminUser', 'true');
+      console.error('No users found. Default admin user (username: admin, password: admin) will be created.');
+      console.error('Please change the admin password after first login!');
+    }
+
     // Migration: Set default connection if not set but connections exist
     const defaultConn = this.getSetting('defaultConnection');
     if (!defaultConn) {
@@ -120,6 +142,51 @@ export class DatabaseManager {
         const activeConn = connections.find((c) => c.isActive) || connections[0];
         this.setSetting('defaultConnection', activeConn.id);
         console.error(`Migration: Set ${activeConn.name} as default connection`);
+      }
+    }
+  }
+
+  /**
+   * Ensure default admin user exists (async, call after initialization)
+   * Creates admin/admin user with must_change_password flag
+   */
+  async ensureDefaultAdminUser(): Promise<void> {
+    const needsAdmin = this.getSetting('needsAdminUser');
+    if (needsAdmin === 'true') {
+      const defaultUserId = 'user_default_admin';
+
+      try {
+        // Check if admin already exists (race condition safety)
+        const existing = this.getUserByUsername('admin');
+        if (existing) {
+          this.deleteSetting('needsAdminUser');
+          return;
+        }
+
+        // Hash the default password
+        const passwordHash = await hashPassword('admin');
+
+        // Create admin user with atomic insert
+        this.executeWithRetry(() => {
+          const stmt = this.db.prepare(`
+            INSERT OR IGNORE INTO users (id, username, password_hash, created_at, is_active, must_change_password)
+            VALUES (?, ?, ?, ?, 1, 1)
+          `);
+          stmt.run(defaultUserId, 'admin', passwordHash, Date.now());
+        });
+
+        // Verify insertion
+        const inserted = this.getUserById(defaultUserId);
+        if (inserted) {
+          console.error('Created default admin user:');
+          console.error('  Username: admin');
+          console.error('  Password: admin');
+          console.error('  ⚠️  You will be prompted to change this password on first login!');
+        }
+
+        this.deleteSetting('needsAdminUser');
+      } catch (error) {
+        console.error('Failed to create default admin user:', error);
       }
     }
   }
@@ -269,6 +336,182 @@ export class DatabaseManager {
 
       stmt.run(id);
     });
+  }
+
+  // ============================================================================
+  // User Management
+  // ============================================================================
+
+  /**
+   * Create a new user
+   */
+  createUser(username: string, passwordHash: string, mustChangePassword: boolean = false): User {
+    const id = `user_${generateToken(12)}`;
+    const created_at = Date.now();
+
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO users (id, username, password_hash, created_at, is_active, must_change_password)
+        VALUES (?, ?, ?, ?, 1, ?)
+      `);
+
+      stmt.run(id, username, passwordHash, created_at, mustChangePassword ? 1 : 0);
+    });
+
+    return {
+      id,
+      username,
+      password_hash: passwordHash,
+      created_at,
+      last_login_at: null,
+      is_active: true,
+      must_change_password: mustChangePassword,
+    };
+  }
+
+  /**
+   * Get all users (without password hashes in response)
+   */
+  getAllUsers(): Omit<User, 'password_hash'>[] {
+    const stmt = this.db.prepare(`
+      SELECT id, username, created_at, last_login_at, is_active, must_change_password
+      FROM users
+      ORDER BY created_at DESC
+    `);
+
+    return stmt.all().map((row: any) => ({
+      ...row,
+      is_active: Boolean(row.is_active),
+      must_change_password: Boolean(row.must_change_password),
+    })) as Omit<User, 'password_hash'>[];
+  }
+
+  /**
+   * Get user by ID
+   */
+  getUserById(id: string): User | null {
+    const stmt = this.db.prepare(`
+      SELECT id, username, password_hash, created_at, last_login_at, is_active, must_change_password
+      FROM users
+      WHERE id = ?
+    `);
+
+    const row = stmt.get(id) as any;
+    if (!row) return null;
+
+    return {
+      ...row,
+      is_active: Boolean(row.is_active),
+      must_change_password: Boolean(row.must_change_password),
+    };
+  }
+
+  /**
+   * Get user by username
+   */
+  getUserByUsername(username: string): User | null {
+    const stmt = this.db.prepare(`
+      SELECT id, username, password_hash, created_at, last_login_at, is_active, must_change_password
+      FROM users
+      WHERE username = ?
+    `);
+
+    const row = stmt.get(username) as any;
+    if (!row) return null;
+
+    return {
+      ...row,
+      is_active: Boolean(row.is_active),
+      must_change_password: Boolean(row.must_change_password),
+    };
+  }
+
+  /**
+   * Update user
+   */
+  updateUser(id: string, updates: { username?: string; is_active?: boolean; must_change_password?: boolean }): void {
+    const updateFields: string[] = [];
+    const params: any[] = [];
+
+    if (updates.username !== undefined) {
+      updateFields.push('username = ?');
+      params.push(updates.username);
+    }
+    if (updates.is_active !== undefined) {
+      updateFields.push('is_active = ?');
+      params.push(updates.is_active ? 1 : 0);
+    }
+    if (updates.must_change_password !== undefined) {
+      updateFields.push('must_change_password = ?');
+      params.push(updates.must_change_password ? 1 : 0);
+    }
+
+    if (updateFields.length === 0) return;
+
+    params.push(id);
+
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE users
+        SET ${updateFields.join(', ')}
+        WHERE id = ?
+      `);
+
+      stmt.run(...params);
+    });
+  }
+
+  /**
+   * Update user password
+   */
+  updateUserPassword(id: string, passwordHash: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE users
+        SET password_hash = ?, must_change_password = 0
+        WHERE id = ?
+      `);
+
+      stmt.run(passwordHash, id);
+    });
+  }
+
+  /**
+   * Update user last login timestamp
+   */
+  updateUserLastLogin(id: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE users
+        SET last_login_at = ?
+        WHERE id = ?
+      `);
+
+      stmt.run(Date.now(), id);
+    });
+  }
+
+  /**
+   * Delete user
+   */
+  deleteUser(id: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        DELETE FROM users
+        WHERE id = ?
+      `);
+
+      stmt.run(id);
+    });
+  }
+
+  /**
+   * Check if any users exist
+   */
+  hasUsers(): boolean {
+    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM users');
+    const result = stmt.get() as { count: number };
+    return result.count > 0;
   }
 
   // ============================================================================
@@ -650,25 +893,27 @@ export class DatabaseManager {
    * Log a request
    */
   logRequest(
-    apiKeyId: string,
+    apiKeyId: string | null,
     endpoint: string,
     method: string,
     requestBody: any,
     responseBody: any,
     statusCode: number,
-    durationMs: number
+    durationMs: number,
+    userId?: string | null
   ): void {
     try {
       this.executeWithRetry(() => {
         const stmt = this.db.prepare(`
           INSERT INTO request_logs (
-            api_key_id, endpoint, method, request_body, response_body,
+            api_key_id, user_id, endpoint, method, request_body, response_body,
             status_code, duration_ms, timestamp
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
           apiKeyId,
+          userId || null,
           endpoint,
           method,
           requestBody ? JSON.stringify(requestBody) : null,

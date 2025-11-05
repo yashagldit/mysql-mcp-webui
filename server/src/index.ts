@@ -19,6 +19,9 @@ async function main() {
     // Initialize database
     const dbManager = getDatabaseManager();
 
+    // Ensure default admin user exists (async operation)
+    await dbManager.ensureDefaultAdminUser();
+
     // Ensure at least one API key exists
     const apiKeys = dbManager.getAllApiKeys();
     if (apiKeys.length === 0) {

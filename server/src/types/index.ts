@@ -272,3 +272,21 @@ export const QueryTypePermissionMap: Record<QueryType, keyof Permissions | null>
   SET: 'select',
   UNKNOWN: null,
 };
+
+// ============================================================================
+// Express Request Extensions
+// ============================================================================
+
+declare global {
+  namespace Express {
+    interface Request {
+      apiKeyId?: string;
+      user?: {
+        userId: string;
+        username: string;
+      };
+      isLocalhost?: boolean;
+      startTime?: number;
+    }
+  }
+}

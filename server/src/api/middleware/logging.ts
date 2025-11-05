@@ -1,16 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { getDatabaseManager } from '../../db/database-manager.js';
 
-// Extend Request to include apiKeyId
-declare global {
-  namespace Express {
-    interface Request {
-      apiKeyId?: string;
-      startTime?: number;
-    }
-  }
-}
-
 /**
  * Check if a request should be logged
  * Only logs MCP-related operations (MCP endpoint is logged separately in handlers)
@@ -77,18 +67,19 @@ export function loggingMiddleware(req: Request, res: Response, next: NextFunctio
     // Calculate duration
     const duration = req.startTime ? Date.now() - req.startTime : 0;
 
-    // Log to database if API key is available
-    if (req.apiKeyId) {
+    // Log to database if API key or user is available
+    if (req.apiKeyId || req.user) {
       try {
         const dbManager = getDatabaseManager();
         dbManager.logRequest(
-          req.apiKeyId,
+          req.apiKeyId || null,
           req.path,
           req.method,
           req.body,
           body,
           res.statusCode,
-          duration
+          duration,
+          req.user?.userId
         );
       } catch (error) {
         console.error('Failed to log request:', error);

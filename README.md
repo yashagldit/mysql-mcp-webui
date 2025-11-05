@@ -8,6 +8,8 @@ A MySQL MCP (Model Context Protocol) server with a React-based web UI for live c
 
 ## Features
 
+- **Dual Authentication System**: Username/password login for WebUI or API token authentication for programmatic access
+- **User Management**: Create and manage multiple users with secure password hashing (bcrypt)
 - **Web UI for Configuration**: Manage MySQL connections, databases, and permissions through an intuitive web interface
 - **Multi-Instance Support**: Run multiple Claude Desktop instances or HTTP sessions simultaneously with isolated state
 - **Auto-Discovery**: Automatically discovers databases from MySQL server connections
@@ -16,7 +18,7 @@ A MySQL MCP (Model Context Protocol) server with a React-based web UI for live c
 - **Dual Transport Support**: Works with both stdio and HTTP transports
 - **MCP Tools**: Three powerful tools for Claude to interact with your MySQL databases
 - **Production Ready**: HTTPS/TLS support, rate limiting, Docker deployment
-- **Secure**: AES-256-GCM password encryption, token-based authentication
+- **Secure**: AES-256-GCM password encryption, JWT authentication, API token support
 - **Multiple Connections**: Manage multiple MySQL server connections from a single interface
 
 ## Quick Start
@@ -72,9 +74,14 @@ cp .env.example .env
 docker-compose up -d
 
 # Access Web UI at http://localhost:3000
-# Get your API key from logs
-docker-compose logs mysql-mcp | grep "API key"
+# Login with default credentials: admin / admin
+# You'll be prompted to change the password on first login
 ```
+
+**First Login:**
+- Username: `admin`
+- Password: `admin`
+- You will be forced to change the password immediately for security
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for comprehensive deployment guide including HTTPS setup, multi-instance configuration, and security best practices.
 
@@ -148,6 +155,22 @@ Switch to a different database in the active connection.
 
 ## REST API Endpoints
 
+### Authentication
+
+- `POST /api/auth/login` - Login with username/password or API token
+- `POST /api/auth/logout` - Logout (clears JWT cookie)
+- `GET /api/auth/me` - Get current user info (requires auth)
+- `POST /api/auth/change-password` - Change user password
+- `POST /api/auth/check-token` - Validate API token
+
+### User Management
+
+- `GET /api/users` - List all users (requires auth)
+- `POST /api/users` - Create new user (requires auth)
+- `PUT /api/users/:id` - Update user details (requires auth)
+- `PUT /api/users/:id/password` - Admin password reset (requires auth)
+- `DELETE /api/users/:id` - Delete user (requires auth)
+
 ### Connections
 
 - `GET /api/connections` - List all connections
@@ -171,16 +194,30 @@ Switch to a different database in the active connection.
 
 - `POST /api/query` - Execute SQL query
 
+### API Keys
+
+- `GET /api/keys` - List all API keys
+- `POST /api/keys` - Create new API key
+- `PUT /api/keys/:id` - Update API key
+- `DELETE /api/keys/:id` - Revoke API key
+- `GET /api/keys/:id/logs` - Get API key usage logs
+
+### Request Logs
+
+- `GET /api/logs` - List request logs with pagination
+- `GET /api/logs/:id` - Get specific log entry
+- `GET /api/logs/stats` - Get logging statistics
+- `DELETE /api/logs?days=30` - Clear old logs
+
 ### Settings
 
 - `GET /api/settings` - Get server settings
-- `POST /api/settings/token/rotate` - Rotate authentication token
 - `GET /api/active` - Get current active state
 - `GET /api/health` - Health check (no auth required)
 
 ### MCP
 
-- `POST /mcp` - MCP protocol endpoint
+- `POST /mcp` - MCP protocol endpoint (requires API key)
 
 ## MCP Client Configuration
 
@@ -244,9 +281,11 @@ Replace `YOUR_API_KEY_HERE` with an API key from the Settings page.
 
 Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 
-- **API Keys**: Multiple authentication keys with individual activation
+- **Users**: User accounts for WebUI authentication with hashed passwords
+- **API Keys**: Multiple authentication keys for programmatic access and MCP
 - **Connections**: MySQL server connection details (encrypted passwords)
 - **Databases**: Per-database permissions and metadata
+- **Request Logs**: API and MCP request/response history
 - **Settings**: Server configuration (transport mode, port, etc.)
 
 ### Environment Variables
@@ -256,6 +295,11 @@ Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 - `HTTP_PORT` - HTTP server port (default: 3000)
 - `NODE_ENV` - Environment: `development` or `production`
 
+#### Authentication Variables
+- `JWT_SECRET` - Secret for JWT token signing (32+ characters, optional in HTTP development mode, not used in stdio mode)
+- `JWT_EXPIRES_IN` - JWT token expiration time (default: 7d)
+- `AUTH_TOKEN` - API key for authentication (required for stdio mode only)
+
 #### Optional Variables
 - `ENABLE_HTTPS` - Enable HTTPS (default: false)
 - `SSL_CERT_PATH` - Path to SSL certificate file
@@ -263,20 +307,24 @@ Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 - `RATE_LIMIT_ENABLED` - Enable rate limiting (default: true)
 - `RATE_LIMIT_WINDOW_MS` - Rate limit window in milliseconds (default: 900000 / 15 minutes)
 - `RATE_LIMIT_MAX_REQUESTS` - Max requests per window (default: 100)
-- `AUTH_TOKEN` - Authentication token (required for stdio mode only)
+
+**Note**: In development HTTP mode, a default JWT secret is used if not provided. For production HTTP mode, `JWT_SECRET` must be explicitly set. Stdio mode (MCP via Claude Desktop) doesn't require JWT_SECRET as it uses API key authentication.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration examples and production setup.
 
 ## Security Features
 
-- **AES-256-GCM Encryption**: All database passwords are encrypted at rest
-- **Token Authentication**: Secure token-based authentication for all API and MCP requests
+- **Dual Authentication**: JWT-based authentication for WebUI users + API key authentication for MCP/programmatic access
+- **Password Security**: bcrypt hashing (10 salt rounds) for user passwords with forced password change on first login
+- **AES-256-GCM Encryption**: All MySQL database passwords are encrypted at rest
+- **JWT Tokens**: httpOnly cookies with configurable expiration for secure session management
 - **Rate Limiting**: Configurable per-endpoint rate limiting to prevent abuse
 - **HTTPS/TLS Support**: Production-ready SSL/TLS encryption for all connections
 - **Permission Validation**: Query permissions are checked before execution
 - **Transaction Support**: All queries run in transactions with automatic rollback on error
 - **SQL Injection Prevention**: Uses parameterized queries via mysql2
 - **Constant-Time Comparison**: Prevents timing attacks on token verification
+- **User Management**: Multi-user support with secure CRUD operations
 
 ## Architecture
 
@@ -304,6 +352,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration examples and produ
 │                   │                           │
 │  ┌────────────────▼─────────────────┐        │
 │  │  SQLite DB (WAL mode + retries)  │        │
+│  │  - Users (hashed passwords)       │        │
 │  │  - API Keys                       │        │
 │  │  - Connections (encrypted)        │        │
 │  │  - Databases & Permissions        │        │
@@ -326,6 +375,9 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration examples and produ
 - mysql2 with Promise support
 - node-sql-parser
 - Zod for validation
+- jsonwebtoken (JWT authentication)
+- bcrypt (password hashing)
+- cookie-parser (session management)
 
 ### Frontend
 - React 18
@@ -374,8 +426,9 @@ npm run build
 - Full MCP server implementation with three powerful tools
 - Complete REST API for connection and database management
 - React-based web UI for configuration management
-- Multi-API key authentication system
-- Request/response logging
+- **Dual authentication system (JWT for WebUI + API keys for MCP)**
+- **Multi-user support with secure password management**
+- Request/response logging with user tracking
 - Dual transport support (stdio/http)
 - **Multi-instance support with isolated state (stdio and HTTP modes)**
 - **Production-ready Docker deployment**
@@ -387,12 +440,12 @@ npm run build
 - **Session-based isolation for HTTP mode**
 
 ### Planned Features
+- Role-based access control (RBAC)
 - Query history and favorites
 - Advanced permissions (table/column level)
 - Query result export (CSV, JSON, etc.)
 - Database schema explorer
 - Monitoring and metrics dashboard
-- Multi-user support with role-based access
 - Query performance analysis
 - Backup and restore management
 

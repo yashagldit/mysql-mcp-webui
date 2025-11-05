@@ -13,6 +13,17 @@ const DEFAULT_DB_PATH = path.resolve(__dirname, '../../../data/mysql-mcp.db');
  * Database schema definition
  */
 export const SCHEMA = `
+-- Users Table
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  last_login_at INTEGER,
+  is_active INTEGER DEFAULT 1,
+  must_change_password INTEGER DEFAULT 0
+);
+
 -- API Keys Table
 CREATE TABLE IF NOT EXISTS api_keys (
   id TEXT PRIMARY KEY,
@@ -55,7 +66,8 @@ CREATE TABLE IF NOT EXISTS databases (
 -- Request Logs Table
 CREATE TABLE IF NOT EXISTS request_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  api_key_id TEXT NOT NULL,
+  api_key_id TEXT,
+  user_id TEXT,
   endpoint TEXT NOT NULL,
   method TEXT NOT NULL,
   request_body TEXT,
@@ -63,7 +75,8 @@ CREATE TABLE IF NOT EXISTS request_logs (
   status_code INTEGER,
   duration_ms INTEGER,
   timestamp INTEGER NOT NULL,
-  FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
+  FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Settings Table
@@ -73,11 +86,14 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- Indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 CREATE INDEX IF NOT EXISTS idx_api_keys_is_active ON api_keys(is_active);
 CREATE INDEX IF NOT EXISTS idx_connections_is_active ON connections(is_active);
 CREATE INDEX IF NOT EXISTS idx_databases_connection_id ON databases(connection_id);
 CREATE INDEX IF NOT EXISTS idx_databases_is_active ON databases(is_active);
 CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);
+CREATE INDEX IF NOT EXISTS idx_request_logs_user_id ON request_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
 `;
 

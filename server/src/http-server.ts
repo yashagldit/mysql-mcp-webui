@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { authMiddleware, optionalAuthMiddleware, smartAuthMiddleware } from './api/middleware/auth.js';
@@ -11,6 +12,8 @@ import queryRouter from './api/routes/query.js';
 import settingsRouter from './api/routes/settings.js';
 import apiKeysRouter from './api/routes/api-keys.js';
 import logsRouter from './api/routes/logs.js';
+import authRouter from './api/routes/auth.js';
+import usersRouter from './api/routes/users.js';
 import { getMcpServer } from './mcp/server.js';
 import type { EnvironmentConfig } from './config/environment.js';
 
@@ -22,6 +25,7 @@ export function createHttpServer(config: EnvironmentConfig): Express {
 
   // Middleware
   app.use(express.json());
+  app.use(cookieParser());
   app.use(
     cors({
       origin: process.env.NODE_ENV === 'production' ? false : true,
@@ -74,13 +78,18 @@ export function createHttpServer(config: EnvironmentConfig): Express {
   const mcpServer = getMcpServer();
   mcpServer.setupHttpTransport(app);
 
-  // API routes (use smart auth: bypasses auth for localhost unless REQUIRE_AUTH_ON_LOCALHOST=true)
+  // Auth routes (public endpoints for login/logout, but some require auth)
+  // Login and check-token are public, others require authentication
+  app.use('/api/auth', authRouter);
+
+  // API routes (all require authentication - no localhost bypass)
   app.use('/api/connections', smartAuthMiddleware, connectionsRouter);
   app.use('/api/connections', smartAuthMiddleware, databasesRouter);
   app.use('/api/query', smartAuthMiddleware, queryRouter);
   app.use('/api', smartAuthMiddleware, settingsRouter);
   app.use('/api/keys', smartAuthMiddleware, apiKeysRouter);
   app.use('/api/logs', smartAuthMiddleware, logsRouter);
+  app.use('/api/users', smartAuthMiddleware, usersRouter);
 
   // Serve static files in production
   if (process.env.NODE_ENV === 'production') {

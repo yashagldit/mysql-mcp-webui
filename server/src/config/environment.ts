@@ -25,6 +25,10 @@ export interface EnvironmentConfig {
 
   // Authentication (stdio mode)
   authToken?: string;
+
+  // JWT Authentication (for user login)
+  jwtSecret: string;
+  jwtExpiresIn: string;
 }
 
 /**
@@ -83,6 +87,34 @@ export function loadEnvironment(): EnvironmentConfig {
     throw new Error('AUTH_TOKEN environment variable is required for stdio mode');
   }
 
+  // JWT configuration (required for user authentication in HTTP mode only)
+  // Default development secret (32+ characters) - NOT FOR PRODUCTION
+  const DEFAULT_DEV_JWT_SECRET = '4DCbCP6qf/KAj3av7Q1vywjOuqZtK862HsOwrP6w0Go=';
+
+  let jwtSecret: string = process.env.JWT_SECRET || '';
+  const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '7d';
+
+  // JWT is only needed for HTTP mode (WebUI authentication)
+  // stdio mode uses AUTH_TOKEN (API key) for authentication
+  if (transport === 'http' && !jwtSecret) {
+    if (nodeEnv === 'production') {
+      throw new Error('JWT_SECRET environment variable is required in production HTTP mode. Generate a secure random string (e.g., openssl rand -base64 32)');
+    } else {
+      console.warn('⚠️  Warning: Using default JWT_SECRET for development. DO NOT use this in production!');
+      console.warn('   Set JWT_SECRET environment variable to a secure random string.');
+      jwtSecret = DEFAULT_DEV_JWT_SECRET;
+    }
+  }
+
+  // Use default for stdio mode (not used, but required by interface)
+  if (transport === 'stdio' && !jwtSecret) {
+    jwtSecret = DEFAULT_DEV_JWT_SECRET;
+  }
+
+  if (jwtSecret.length > 0 && jwtSecret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long for security');
+  }
+
   return {
     transport,
     httpPort,
@@ -94,6 +126,8 @@ export function loadEnvironment(): EnvironmentConfig {
     rateLimitMaxRequests,
     nodeEnv,
     authToken,
+    jwtSecret,
+    jwtExpiresIn,
   };
 }
 
@@ -125,6 +159,9 @@ export function getConfigSummary(config: EnvironmentConfig): string {
     lines.push(`Auth Token: ${config.authToken ? '***' + config.authToken.slice(-4) : 'Not set'}`);
   }
 
+  lines.push(`JWT Enabled: Yes`);
+  lines.push(`JWT Secret: ***${config.jwtSecret.slice(-4)}`);
+  lines.push(`JWT Expires In: ${config.jwtExpiresIn}`);
   lines.push('='.repeat(50));
 
   return lines.join('\n');

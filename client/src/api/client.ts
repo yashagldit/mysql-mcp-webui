@@ -31,9 +31,10 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      withCredentials: true, // Enable cookie support for JWT auth
     });
 
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token (for API token mode)
     this.client.interceptors.request.use((config) => {
       if (this.authToken) {
         config.headers.Authorization = `Bearer ${this.authToken}`;
@@ -46,15 +47,12 @@ class ApiClient {
       (response) => response,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // Only redirect if we had a token (invalid token scenario)
-          // If no token, the caller is testing for no-auth access (localhost)
-          const hadToken = !!this.authToken;
-
-          // Clear invalid token
-          this.setAuthToken(null);
-
-          // Only auto-redirect if we had a token that was rejected
-          if (hadToken && window.location.pathname !== '/auth') {
+          // Only redirect if not already on auth page and not a login request
+          const isLoginRequest = error.config?.url?.includes('/auth/login');
+          if (!isLoginRequest && window.location.pathname !== '/auth') {
+            // Clear any stored token
+            this.setAuthToken(null);
+            // Redirect to login
             window.location.href = '/auth';
           }
         }
@@ -62,7 +60,7 @@ class ApiClient {
       }
     );
 
-    // Load token from localStorage
+    // Load token from localStorage (for API token mode)
     const savedToken = localStorage.getItem('apiToken');
     if (savedToken) {
       this.authToken = savedToken;
@@ -80,6 +78,23 @@ class ApiClient {
 
   getAuthToken(): string | null {
     return this.authToken;
+  }
+
+  // Generic HTTP methods (for use by AuthContext and other components)
+  get(url: string, config?: any) {
+    return this.client.get(url, config);
+  }
+
+  post(url: string, data?: any, config?: any) {
+    return this.client.post(url, data, config);
+  }
+
+  put(url: string, data?: any, config?: any) {
+    return this.client.put(url, data, config);
+  }
+
+  delete(url: string, config?: any) {
+    return this.client.delete(url, config);
   }
 
   // Connection endpoints

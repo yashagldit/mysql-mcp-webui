@@ -1,15 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { getDatabaseManager } from '../../db/database-manager.js';
-
-// Extend Request to include apiKeyId and localhost flag
-declare global {
-  namespace Express {
-    interface Request {
-      apiKeyId?: string;
-      isLocalhost?: boolean;
-    }
-  }
-}
+import { verifyJWT, extractTokenFromHeader } from '../../config/auth-utils.js';
 
 /**
  * Helper function to detect if request is from localhost
@@ -29,50 +20,70 @@ function isLocalhost(req: Request): boolean {
 }
 
 /**
- * Authentication middleware
- * Verifies Bearer token in Authorization header against API keys in database
+ * Authentication middleware (Dual mode: JWT or API Key)
+ * Tries authentication in this order:
+ * 1. JWT in httpOnly cookie
+ * 2. JWT in Authorization header
+ * 3. API key in Authorization header
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      res.status(401).json({
-        success: false,
-        error: 'Authorization header required',
-      });
-      return;
-    }
-
-    // Extract token from "Bearer <token>" format
-    const parts = authHeader.split(' ');
-    if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      res.status(401).json({
-        success: false,
-        error: 'Invalid authorization header format. Expected: Bearer <token>',
-      });
-      return;
-    }
-
-    const token = parts[1];
-
-    // Verify API key in database
     const dbManager = getDatabaseManager();
-    const apiKey = dbManager.verifyApiKey(token);
 
-    if (!apiKey) {
-      res.status(401).json({
-        success: false,
-        error: 'Invalid or inactive API key',
-      });
-      return;
+    // 1. Try JWT from cookie
+    const cookieToken = req.cookies?.auth_token;
+    if (cookieToken) {
+      const payload = verifyJWT(cookieToken);
+      if (payload) {
+        req.user = {
+          userId: payload.userId,
+          username: payload.username,
+        };
+        next();
+        return;
+      }
+      // Cookie token is invalid/expired, clear it
+      res.clearCookie('auth_token');
     }
 
-    // Store API key ID in request for logging
-    req.apiKeyId = apiKey.id;
+    // 2. Try JWT or API key from Authorization header
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = extractTokenFromHeader(authHeader);
 
-    // Token is valid, proceed
-    next();
+      if (!token) {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid authorization header format. Expected: Bearer <token>',
+        });
+        return;
+      }
+
+      // Try as JWT first
+      const jwtPayload = verifyJWT(token);
+      if (jwtPayload) {
+        req.user = {
+          userId: jwtPayload.userId,
+          username: jwtPayload.username,
+        };
+        next();
+        return;
+      }
+
+      // Try as API key
+      const apiKey = dbManager.verifyApiKey(token);
+      if (apiKey) {
+        req.apiKeyId = apiKey.id;
+        next();
+        return;
+      }
+    }
+
+    // No valid authentication found
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required. Provide valid JWT or API key.',
+    });
   } catch (error) {
     console.error('Auth middleware error:', error);
     res.status(500).json({
@@ -101,23 +112,15 @@ export function optionalAuthMiddleware(req: Request, res: Response, next: NextFu
 
 /**
  * Smart authentication middleware
- * Bypasses authentication for localhost requests (unless REQUIRE_AUTH_ON_LOCALHOST is true)
- * Requires authentication for remote requests
+ * Always requires authentication (localhost bypass removed for security)
+ * Marks requests as from localhost for logging purposes
  */
 export function smartAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const requireAuthOnLocalhost = process.env.REQUIRE_AUTH_ON_LOCALHOST === 'true';
   const fromLocalhost = isLocalhost(req);
 
   // Mark request as from localhost for logging purposes
   req.isLocalhost = fromLocalhost;
 
-  // If from localhost and auth not required, bypass authentication
-  if (fromLocalhost && !requireAuthOnLocalhost) {
-    console.log('[Auth] Bypassing authentication for localhost request');
-    next();
-    return;
-  }
-
-  // Otherwise, require authentication
+  // Always require authentication
   authMiddleware(req, res, next);
 }

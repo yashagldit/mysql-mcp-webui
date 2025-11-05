@@ -15,6 +15,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security policy
 - Comprehensive README documentation
 
+## [3.1.0] - 2025-01-XX
+
+### Added
+
+#### User Authentication & Multi-User Support
+- **Dual authentication system**: JWT for WebUI users + API keys for MCP/programmatic access
+- Username/password login for WebUI with secure password hashing (bcrypt, 10 salt rounds)
+- Default admin account (username: `admin`, password: `admin`) with forced password change on first login
+- JWT token-based sessions with httpOnly cookies for enhanced security
+- User management interface with full CRUD operations
+- Secure password change flow with current password validation
+- Admin password reset capability
+
+#### Backend
+- Authentication endpoints (`/api/auth`):
+  - `POST /login` - Login with username/password or API token
+  - `POST /logout` - Logout and clear JWT cookie
+  - `GET /me` - Get current user information
+  - `POST /change-password` - Change user password
+  - `POST /check-token` - Validate API token
+- User management endpoints (`/api/users`):
+  - Full CRUD operations for user accounts
+  - Admin password reset functionality
+  - User activation/deactivation
+- Users table in SQLite database with hashed passwords
+- JWT authentication utilities (`server/src/config/auth-utils.ts`)
+- Updated auth middleware for dual authentication (JWT cookie → JWT header → API key header)
+- User tracking in request logs with optional `user_id` field
+- Environment variables: `JWT_SECRET` (32+ chars, optional in dev HTTP mode), `JWT_EXPIRES_IN` (default: 7d)
+
+#### Frontend
+- Login modal with tabs for username/password vs API token authentication
+- Password change modal with forced change support
+- Enhanced AuthContext with dual authentication modes and user state
+- Cookie-based session management (httpOnly, secure, sameSite)
+- User profile display and management
+
+#### Security
+- bcrypt password hashing with configurable salt rounds
+- JWT tokens with configurable expiration (default: 7 days)
+- httpOnly cookies prevent XSS attacks on tokens
+- Forced password change on first login for default admin
+- Constant-time password comparison
+- Separate authentication flows for WebUI (JWT) and MCP (API keys)
+
+### Changed
+- Auth middleware now supports three authentication methods in priority order:
+  1. JWT from httpOnly cookie
+  2. JWT from Authorization header
+  3. API key from Authorization header
+- Request logging now captures both API key usage (MCP) and user actions (WebUI)
+- JWT_SECRET only required for HTTP mode, not stdio mode (MCP uses API keys)
+- Removed localhost authentication bypass for improved security
+
+### Technical Details
+- **Backward compatible**: Existing API key authentication for MCP tools remains unchanged
+- **Stdio mode**: Uses AUTH_TOKEN (API key) only, no JWT required
+- **HTTP mode**: Supports both JWT (for WebUI) and API keys (for programmatic access)
+- **Development mode**: Auto-generates default JWT secret with warning
+- **Production mode**: Requires explicit JWT_SECRET environment variable
+
 ## [1.0.0] - 2025-01-XX
 
 ### Added
