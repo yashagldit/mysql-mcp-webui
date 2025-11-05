@@ -7,11 +7,15 @@ services:
       dockerfile: Dockerfile
     container_name: mysql-mcp-webui
     ports:
-      - "${HTTP_PORT:-3000}:3000"
+      - "5197:5197"
     environment:
       # Transport mode
       - TRANSPORT=http
-      - HTTP_PORT=3000
+      - HTTP_PORT=5197
+
+      # JWT Authentication
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-30d}
 
       # HTTPS configuration (optional)
       - ENABLE_HTTPS=${ENABLE_HTTPS:-false}
@@ -51,7 +55,7 @@ services:
 
     # Health check
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5197/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
       timeout: 3s
       start_period: 10s

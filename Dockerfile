@@ -17,7 +17,6 @@ RUN npm ci
 # Copy source files
 COPY client ./client
 COPY server ./server
-COPY tsconfig.json ./
 
 # Build client and server
 RUN npm run build
@@ -63,8 +62,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 
 # Set environment variables
 ENV NODE_ENV=production \
-    TRANSPORT=http \
-    HTTP_PORT=${HTTP_PORT}
+    TRANSPORT=http
 
 # Start the server
 CMD ["node", "server/dist/index.js"]
