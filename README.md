@@ -9,11 +9,13 @@ A MySQL MCP (Model Context Protocol) server with a React-based web UI for live c
 ## Features
 
 - **Web UI for Configuration**: Manage MySQL connections, databases, and permissions through an intuitive web interface
+- **Multi-Instance Support**: Run multiple Claude Desktop instances or HTTP sessions simultaneously with isolated state
 - **Auto-Discovery**: Automatically discovers databases from MySQL server connections
 - **Per-Database Permissions**: Fine-grained control over 8 different operation types (SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, TRUNCATE)
 - **Live Database Switching**: Switch between databases without restarting the server
 - **Dual Transport Support**: Works with both stdio and HTTP transports
 - **MCP Tools**: Three powerful tools for Claude to interact with your MySQL databases
+- **Production Ready**: HTTPS/TLS support, rate limiting, Docker deployment
 - **Secure**: AES-256-GCM password encryption, token-based authentication
 - **Multiple Connections**: Manage multiple MySQL server connections from a single interface
 
@@ -54,6 +56,54 @@ npm run start:http
 # Or start in stdio mode
 npm run start:stdio
 ```
+
+### Docker Deployment (Recommended for Production)
+
+For production deployments with HTTPS, rate limiting, and multi-instance support:
+
+```bash
+# Clone and configure
+git clone <repository-url>
+cd MySQLMCP
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start with Docker Compose
+docker-compose up -d
+
+# Access Web UI at http://localhost:3000
+# Get your API key from logs
+docker-compose logs mysql-mcp | grep "API key"
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for comprehensive deployment guide including HTTPS setup, multi-instance configuration, and security best practices.
+
+## Multi-Instance Support
+
+MySQL MCP WebUI supports running multiple instances simultaneously with proper isolation:
+
+### stdio Mode (Multiple Processes)
+- Each Claude Desktop instance spawns a separate MCP server process
+- Each process maintains independent active connection/database state
+- Shared SQLite database with safe concurrent writes (WAL mode + retry logic)
+- **Use case**: Multiple Claude Desktop users on the same machine
+
+### HTTP Mode (Multiple Sessions)
+- Single Docker container serves multiple Claude Code sessions
+- Each HTTP session maintains isolated connection/database state
+- Session-based tracking with automatic cleanup (30 minutes)
+- **Use case**: Remote access from multiple developers or Claude Code instances
+
+### Default Connection Management
+
+The Web UI can set a "default connection" that new instances will use:
+
+1. Navigate to Connections in Web UI
+2. Click "Set as Default" on desired connection
+3. New MCP instances will start with this connection
+4. **Important**: Running instances are NOT affected
+
+This allows coordination across instances without disrupting active sessions.
 
 ## MCP Tools
 
@@ -106,7 +156,9 @@ Switch to a different database in the active connection.
 - `PUT /api/connections/:id` - Update connection
 - `DELETE /api/connections/:id` - Delete connection
 - `POST /api/connections/:id/test` - Test connection
-- `POST /api/connections/:id/activate` - Switch to connection
+- `POST /api/connections/:id/set-default` - Set as default for new instances
+- `GET /api/connections/default` - Get current default connection
+- `POST /api/connections/:id/activate` - Switch to connection (deprecated, use set-default)
 - `POST /api/connections/:id/discover` - Discover databases
 
 ### Databases
@@ -199,15 +251,28 @@ Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 
 ### Environment Variables
 
+#### Required Variables
 - `TRANSPORT` - Transport mode: `stdio` or `http` (default: http)
 - `HTTP_PORT` - HTTP server port (default: 3000)
-- `AUTH_TOKEN` - Authentication token (required for stdio mode)
 - `NODE_ENV` - Environment: `development` or `production`
+
+#### Optional Variables
+- `ENABLE_HTTPS` - Enable HTTPS (default: false)
+- `SSL_CERT_PATH` - Path to SSL certificate file
+- `SSL_KEY_PATH` - Path to SSL private key file
+- `RATE_LIMIT_ENABLED` - Enable rate limiting (default: true)
+- `RATE_LIMIT_WINDOW_MS` - Rate limit window in milliseconds (default: 900000 / 15 minutes)
+- `RATE_LIMIT_MAX_REQUESTS` - Max requests per window (default: 100)
+- `AUTH_TOKEN` - Authentication token (required for stdio mode only)
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration examples and production setup.
 
 ## Security Features
 
 - **AES-256-GCM Encryption**: All database passwords are encrypted at rest
 - **Token Authentication**: Secure token-based authentication for all API and MCP requests
+- **Rate Limiting**: Configurable per-endpoint rate limiting to prevent abuse
+- **HTTPS/TLS Support**: Production-ready SSL/TLS encryption for all connections
 - **Permission Validation**: Query permissions are checked before execution
 - **Transaction Support**: All queries run in transactions with automatic rollback on error
 - **SQL Injection Prevention**: Uses parameterized queries via mysql2
@@ -217,9 +282,10 @@ Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 
 ```
 ┌─────────────────────────────────────────────┐
-│         MCP Client (Claude)                  │
+│    MCP Clients (Claude Desktop/Code)        │
+│    Multiple instances with isolated state    │
 └────────────────┬────────────────────────────┘
-                 │ MCP Protocol
+                 │ MCP Protocol (stdio/HTTP)
 ┌────────────────▼────────────────────────────┐
 │         MySQL MCP WebUI Server               │
 │                                               │
@@ -229,15 +295,24 @@ Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 │  └────┬─────┘  └────┬─────┘  └──────────┘  │
 │       │             │                        │
 │  ┌────▼─────────────▼──────────────┐        │
+│  │    Session Manager (HTTP mode)  │        │
 │  │    Connection Manager            │        │
 │  │    Query Executor                │        │
 │  │    Permission Validator          │        │
-│  │    Config Manager                │        │
+│  │    Database Manager (SQLite)     │        │
 │  └────────────────┬─────────────────┘        │
+│                   │                           │
+│  ┌────────────────▼─────────────────┐        │
+│  │  SQLite DB (WAL mode + retries)  │        │
+│  │  - API Keys                       │        │
+│  │  - Connections (encrypted)        │        │
+│  │  - Databases & Permissions        │        │
+│  │  - Request Logs                   │        │
+│  └───────────────────────────────────┘        │
 └───────────────────┼──────────────────────────┘
                     │ MySQL Protocol
           ┌─────────▼─────────┐
-          │   MySQL Server    │
+          │  MySQL Server(s)  │
           └───────────────────┘
 ```
 
@@ -302,8 +377,14 @@ npm run build
 - Multi-API key authentication system
 - Request/response logging
 - Dual transport support (stdio/http)
+- **Multi-instance support with isolated state (stdio and HTTP modes)**
+- **Production-ready Docker deployment**
+- **HTTPS/TLS support with Let's Encrypt integration**
+- **Configurable rate limiting**
 - Encrypted password storage
 - Per-database permission management
+- **Safe concurrent SQLite writes with retry logic**
+- **Session-based isolation for HTTP mode**
 
 ### Planned Features
 - Query history and favorites

@@ -91,6 +91,9 @@ export class McpServer {
       this.handlers.setApiKeyId(authResult.apiKeyId);
     }
 
+    // Set session info for stdio mode (no session ID, uses process-level state)
+    this.handlers.setSession(null, 'stdio');
+
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
 
@@ -128,6 +131,9 @@ export class McpServer {
 
         // Check for existing session ID
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+        // Set session info for dual-mode handling
+        this.handlers.setSession(sessionId || null, 'http');
         let transport: StreamableHTTPServerTransport;
 
         if (sessionId && this.transports.has(sessionId)) {

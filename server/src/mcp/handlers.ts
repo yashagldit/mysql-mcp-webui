@@ -8,19 +8,77 @@ import { getQueryExecutor } from '../db/query-executor.js';
 import { getDatabaseManager } from '../db/database-manager.js';
 import { getDatabaseDiscovery } from '../db/discovery.js';
 import { getConnectionManager } from '../db/connection-manager.js';
+import { getSessionManager } from './session-manager.js';
 
 export class McpHandlers {
   private queryExecutor = getQueryExecutor();
   private dbManager = getDatabaseManager();
   private databaseDiscovery = getDatabaseDiscovery();
   private connectionManager = getConnectionManager();
+  private sessionManager = getSessionManager();
   private currentApiKeyId: string | null = null;
+  private currentSessionId: string | null = null;
+  private transportMode: 'stdio' | 'http' = 'stdio';
 
   /**
    * Set the current API key ID for logging
    */
   setApiKeyId(apiKeyId: string | null): void {
     this.currentApiKeyId = apiKeyId;
+  }
+
+  /**
+   * Set the current session ID and transport mode
+   */
+  setSession(sessionId: string | null, mode: 'stdio' | 'http'): void {
+    this.currentSessionId = sessionId;
+    this.transportMode = mode;
+  }
+
+  /**
+   * Get active connection ID based on transport mode
+   * - stdio mode: uses ConnectionManager (process-level state)
+   * - HTTP mode: uses SessionManager (session-level state)
+   */
+  private getActiveConnectionId(): string | null {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      return this.sessionManager.getActiveConnection(this.currentSessionId);
+    } else {
+      return this.connectionManager.getActiveConnectionId();
+    }
+  }
+
+  /**
+   * Set active connection ID based on transport mode
+   */
+  private setActiveConnectionId(connectionId: string): void {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      this.sessionManager.setActiveConnection(this.currentSessionId, connectionId);
+    } else {
+      this.connectionManager.setActiveConnectionId(connectionId);
+    }
+  }
+
+  /**
+   * Get active database based on transport mode
+   */
+  private getActiveDatabase(connectionId?: string): string | null {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      return this.sessionManager.getActiveDatabase(this.currentSessionId, connectionId);
+    } else {
+      return this.connectionManager.getActiveDatabase(connectionId);
+    }
+  }
+
+  /**
+   * Set active database based on transport mode
+   */
+  private setActiveDatabase(connectionId: string, database: string): void {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      this.sessionManager.setActiveDatabase(this.currentSessionId, connectionId, database);
+    } else {
+      this.connectionManager.setActiveDatabase(connectionId, database);
+    }
   }
 
   /**
@@ -166,9 +224,9 @@ export class McpHandlers {
     const { include_metadata = false } = (args as { include_metadata?: boolean }) || {};
 
     try {
-      const connection = this.dbManager.getActiveConnection();
-
-      if (!connection) {
+      // Get active connection (dual-mode: stdio or HTTP session)
+      const connectionId = this.getActiveConnectionId();
+      if (!connectionId) {
         return {
           content: [
             {
@@ -179,6 +237,22 @@ export class McpHandlers {
           isError: true,
         };
       }
+
+      const connection = this.dbManager.getConnection(connectionId);
+      if (!connection) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: Active connection not found',
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Get active database (dual-mode: stdio or HTTP session)
+      const activeDatabase = this.getActiveDatabase(connectionId);
 
       const databaseNames = Object.keys(connection.databases);
       const databases = [];
@@ -192,7 +266,7 @@ export class McpHandlers {
             const metadata = await this.databaseDiscovery.getDatabaseMetadata(pool, dbName);
             databases.push({
               name: metadata.name,
-              isActive: connection.activeDatabase === metadata.name,
+              isActive: activeDatabase === metadata.name,
               permissions: connection.databases[metadata.name].permissions,
               tableCount: metadata.tableCount,
               size: metadata.sizeFormatted,
@@ -201,7 +275,7 @@ export class McpHandlers {
             // If metadata fails, just include basic info
             databases.push({
               name: dbName,
-              isActive: connection.activeDatabase === dbName,
+              isActive: activeDatabase === dbName,
               permissions: connection.databases[dbName].permissions,
             });
           }
@@ -211,13 +285,13 @@ export class McpHandlers {
         for (const dbName of databaseNames) {
           databases.push({
             name: dbName,
-            isActive: connection.activeDatabase === dbName,
+            isActive: activeDatabase === dbName,
             permissions: connection.databases[dbName].permissions,
           });
         }
       }
 
-      const resultText = this.formatDatabaseList(connection.name, databases, connection.activeDatabase);
+      const resultText = this.formatDatabaseList(connection.name, databases, activeDatabase || undefined);
 
       return {
         content: [
@@ -259,14 +333,27 @@ export class McpHandlers {
     }
 
     try {
-      const connection = this.dbManager.getActiveConnection();
-
-      if (!connection) {
+      // Get active connection (dual-mode: stdio or HTTP session)
+      const connectionId = this.getActiveConnectionId();
+      if (!connectionId) {
         return {
           content: [
             {
               type: 'text',
               text: 'Error: No active connection configured',
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const connection = this.dbManager.getConnection(connectionId);
+      if (!connection) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: Active connection not found',
             },
           ],
           isError: true,
@@ -285,14 +372,14 @@ export class McpHandlers {
         };
       }
 
-      const previousDatabase = connection.activeDatabase;
+      const previousDatabase = this.getActiveDatabase(connectionId);
 
-      // Switch database
-      this.dbManager.switchDatabase(connection.id, database);
+      // Switch database (dual-mode: stdio process or HTTP session)
+      this.setActiveDatabase(connectionId, database);
 
       const newPermissions = connection.databases[database].permissions;
 
-      const resultText = this.formatSwitchResult(previousDatabase, database, newPermissions);
+      const resultText = this.formatSwitchResult(previousDatabase || undefined, database, newPermissions);
 
       return {
         content: [

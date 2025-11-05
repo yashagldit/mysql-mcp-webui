@@ -40,13 +40,87 @@ export class DatabaseManager {
   }
 
   /**
+   * Execute a database operation with retry logic for SQLITE_BUSY errors
+   * Uses exponential backoff: 10ms, 25ms, 50ms, 100ms, 200ms
+   */
+  private executeWithRetry<T>(fn: () => T, maxRetries: number = 5): T {
+    let lastError: Error | null = null;
+    const delays = [10, 25, 50, 100, 200];
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return fn();
+      } catch (error: any) {
+        lastError = error;
+
+        // Check if it's a SQLITE_BUSY error
+        const isBusyError = error.code === 'SQLITE_BUSY' ||
+                           error.message?.includes('SQLITE_BUSY') ||
+                           error.message?.includes('database is locked');
+
+        if (!isBusyError || attempt >= maxRetries) {
+          // Not a busy error or max retries reached, throw immediately
+          throw error;
+        }
+
+        // Log retry attempt
+        const delay = delays[attempt] || 200;
+        console.warn(`SQLite SQLITE_BUSY error, retry ${attempt + 1}/${maxRetries} after ${delay}ms`);
+
+        // Wait before retrying (synchronous sleep)
+        const start = Date.now();
+        while (Date.now() - start < delay) {
+          // Busy wait (not ideal but works for small delays)
+        }
+      }
+    }
+
+    // Should never reach here, but TypeScript needs it
+    throw lastError || new Error('Unknown error during retry');
+  }
+
+  /**
    * Initialize with default values (create first API key if none exist)
+   * Uses atomic check-and-insert to prevent race conditions
    */
   private initializeDefaults(): void {
     const keys = this.getAllApiKeys();
     if (keys.length === 0) {
-      const defaultKey = this.createApiKey('Default API Key');
-      console.error(`Created default API key: ${defaultKey.key}`);
+      // Use a fixed ID for the default key to prevent duplicates
+      const defaultId = 'key_default_initial';
+      const key = generateToken(64);
+      const created_at = Date.now();
+
+      try {
+        this.executeWithRetry(() => {
+          const stmt = this.db.prepare(`
+            INSERT OR IGNORE INTO api_keys (id, name, key, created_at, is_active)
+            VALUES (?, ?, ?, ?, 1)
+          `);
+          stmt.run(defaultId, 'Default API Key', key, created_at);
+        });
+
+        // Check if we actually inserted the key (not ignored due to conflict)
+        const inserted = this.getApiKey(defaultId);
+        if (inserted && inserted.key === key) {
+          console.error(`Created default API key: ${key}`);
+        }
+      } catch (error) {
+        // If insert failed, another instance probably created it - that's OK
+        console.error('Default API key creation skipped (already exists)');
+      }
+    }
+
+    // Migration: Set default connection if not set but connections exist
+    const defaultConn = this.getSetting('defaultConnection');
+    if (!defaultConn) {
+      const connections = this.getAllConnections();
+      if (connections.length > 0) {
+        // Set the first connection (or active one) as default
+        const activeConn = connections.find((c) => c.isActive) || connections[0];
+        this.setSetting('defaultConnection', activeConn.id);
+        console.error(`Migration: Set ${activeConn.name} as default connection`);
+      }
     }
   }
 
@@ -62,12 +136,14 @@ export class DatabaseManager {
     const key = generateToken(64);
     const created_at = Date.now();
 
-    const stmt = this.db.prepare(`
-      INSERT INTO api_keys (id, name, key, created_at, is_active)
-      VALUES (?, ?, ?, ?, 1)
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO api_keys (id, name, key, created_at, is_active)
+        VALUES (?, ?, ?, ?, 1)
+      `);
 
-    stmt.run(id, name, key, created_at);
+      stmt.run(id, name, key, created_at);
+    });
 
     return {
       id,
@@ -140,51 +216,59 @@ export class DatabaseManager {
    * Update API key name
    */
   updateApiKeyName(id: string, name: string): void {
-    const stmt = this.db.prepare(`
-      UPDATE api_keys
-      SET name = ?
-      WHERE id = ?
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE api_keys
+        SET name = ?
+        WHERE id = ?
+      `);
 
-    stmt.run(name, id);
+      stmt.run(name, id);
+    });
   }
 
   /**
    * Update last_used_at timestamp
    */
   private updateApiKeyLastUsed(id: string): void {
-    const stmt = this.db.prepare(`
-      UPDATE api_keys
-      SET last_used_at = ?
-      WHERE id = ?
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE api_keys
+        SET last_used_at = ?
+        WHERE id = ?
+      `);
 
-    stmt.run(Date.now(), id);
+      stmt.run(Date.now(), id);
+    });
   }
 
   /**
    * Revoke (deactivate) API key
    */
   revokeApiKey(id: string): void {
-    const stmt = this.db.prepare(`
-      UPDATE api_keys
-      SET is_active = 0
-      WHERE id = ?
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE api_keys
+        SET is_active = 0
+        WHERE id = ?
+      `);
 
-    stmt.run(id);
+      stmt.run(id);
+    });
   }
 
   /**
    * Delete API key
    */
   deleteApiKey(id: string): void {
-    const stmt = this.db.prepare(`
-      DELETE FROM api_keys
-      WHERE id = ?
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        DELETE FROM api_keys
+        WHERE id = ?
+      `);
 
-    stmt.run(id);
+      stmt.run(id);
+    });
   }
 
   // ============================================================================
@@ -203,30 +287,32 @@ export class DatabaseManager {
     const isFirst = this.db.prepare('SELECT COUNT(*) as count FROM connections').get() as { count: number };
     const is_active = isFirst.count === 0 ? 1 : 0;
 
-    const stmt = this.db.prepare(`
-      INSERT INTO connections (id, name, host, port, user, password, is_active, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO connections (id, name, host, port, user, password, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-    stmt.run(
-      id,
-      request.name,
-      request.host,
-      request.port,
-      request.user,
-      JSON.stringify(encryptedPassword),
-      is_active,
-      created_at
-    );
+      stmt.run(
+        id,
+        request.name,
+        request.host,
+        request.port,
+        request.user,
+        JSON.stringify(encryptedPassword),
+        is_active,
+        created_at
+      );
+    });
 
     // Add discovered databases
     if (autoDiscover.length > 0) {
       this.addDatabases(id, autoDiscover, is_active === 1);
     }
 
-    // If this is the active connection, set the setting
+    // If this is the first connection, set it as the default
     if (is_active) {
-      this.setSetting('activeConnection', id);
+      this.setSetting('defaultConnection', id);
     }
 
     return id;
@@ -302,21 +388,22 @@ export class DatabaseManager {
   }
 
   /**
-   * Get active connection
+   * Get active connection (deprecated - returns default connection)
+   * @deprecated Use getDefaultConnectionId() instead
    */
   getActiveConnection(): ConnectionConfig | null {
-    const activeConnId = this.getSetting('activeConnection');
-    if (!activeConnId) {
-      // Fallback: get any active connection
+    const defaultConnId = this.getDefaultConnectionId();
+    if (!defaultConnId) {
+      // Fallback: get first connection
       const stmt = this.db.prepare(`
-        SELECT id FROM connections WHERE is_active = 1 LIMIT 1
+        SELECT id FROM connections ORDER BY created_at ASC LIMIT 1
       `);
       const row = stmt.get() as { id: string } | undefined;
       if (!row) return null;
       return this.getConnection(row.id);
     }
 
-    return this.getConnection(activeConnId);
+    return this.getConnection(defaultConnId);
   }
 
   /**
@@ -352,35 +439,55 @@ export class DatabaseManager {
 
     params.push(id);
 
-    const stmt = this.db.prepare(`
-      UPDATE connections
-      SET ${updates.join(', ')}
-      WHERE id = ?
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE connections
+        SET ${updates.join(', ')}
+        WHERE id = ?
+      `);
 
-    stmt.run(...params);
+      stmt.run(...params);
+    });
   }
 
   /**
    * Delete connection
    */
   deleteConnection(id: string): void {
-    const stmt = this.db.prepare('DELETE FROM connections WHERE id = ?');
-    stmt.run(id);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare('DELETE FROM connections WHERE id = ?');
+      stmt.run(id);
+    });
   }
 
   /**
-   * Switch active connection
+   * Get the default connection ID (for new instances)
+   */
+  getDefaultConnectionId(): string | null {
+    return this.getSetting('defaultConnection');
+  }
+
+  /**
+   * Set the default connection ID (for new instances)
+   * This does NOT affect currently running instances
+   */
+  setDefaultConnectionId(id: string): void {
+    // Validate connection exists
+    const conn = this.getConnection(id);
+    if (!conn) {
+      throw new Error(`Connection ${id} not found`);
+    }
+
+    this.setSetting('defaultConnection', id);
+  }
+
+  /**
+   * @deprecated Use getDefaultConnectionId() and setDefaultConnectionId() instead
+   * Kept for backwards compatibility, but now only updates the default setting
    */
   switchConnection(id: string): void {
-    // Deactivate all connections
-    this.db.prepare('UPDATE connections SET is_active = 0').run();
-
-    // Activate the specified connection
-    this.db.prepare('UPDATE connections SET is_active = 1 WHERE id = ?').run(id);
-
-    // Update setting
-    this.setSetting('activeConnection', id);
+    console.warn('switchConnection() is deprecated. Use setDefaultConnectionId() instead.');
+    this.setDefaultConnectionId(id);
   }
 
   /**
@@ -412,15 +519,17 @@ export class DatabaseManager {
       const is_active = setFirstActive && i === 0 ? 1 : 0;
 
       try {
-        const stmt = this.db.prepare(`
-          INSERT INTO databases (
-            id, connection_id, name, is_active,
-            select_perm, insert_perm, update_perm, delete_perm,
-            create_perm, alter_perm, drop_perm, truncate_perm
-          ) VALUES (?, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0, 0)
-        `);
+        this.executeWithRetry(() => {
+          const stmt = this.db.prepare(`
+            INSERT INTO databases (
+              id, connection_id, name, is_active,
+              select_perm, insert_perm, update_perm, delete_perm,
+              create_perm, alter_perm, drop_perm, truncate_perm
+            ) VALUES (?, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0, 0)
+          `);
 
-        stmt.run(id, connectionId, dbName, is_active);
+          stmt.run(id, connectionId, dbName, is_active);
+        });
         added.push(dbName);
       } catch (error) {
         // Database might already exist
@@ -464,37 +573,41 @@ export class DatabaseManager {
    * Update database permissions
    */
   updateDatabasePermissions(connectionId: string, databaseName: string, permissions: Permissions): void {
-    const stmt = this.db.prepare(`
-      UPDATE databases
-      SET select_perm = ?, insert_perm = ?, update_perm = ?, delete_perm = ?,
-          create_perm = ?, alter_perm = ?, drop_perm = ?, truncate_perm = ?
-      WHERE connection_id = ? AND name = ?
-    `);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE databases
+        SET select_perm = ?, insert_perm = ?, update_perm = ?, delete_perm = ?,
+            create_perm = ?, alter_perm = ?, drop_perm = ?, truncate_perm = ?
+        WHERE connection_id = ? AND name = ?
+      `);
 
-    stmt.run(
-      permissions.select ? 1 : 0,
-      permissions.insert ? 1 : 0,
-      permissions.update ? 1 : 0,
-      permissions.delete ? 1 : 0,
-      permissions.create ? 1 : 0,
-      permissions.alter ? 1 : 0,
-      permissions.drop ? 1 : 0,
-      permissions.truncate ? 1 : 0,
-      connectionId,
-      databaseName
-    );
+      stmt.run(
+        permissions.select ? 1 : 0,
+        permissions.insert ? 1 : 0,
+        permissions.update ? 1 : 0,
+        permissions.delete ? 1 : 0,
+        permissions.create ? 1 : 0,
+        permissions.alter ? 1 : 0,
+        permissions.drop ? 1 : 0,
+        permissions.truncate ? 1 : 0,
+        connectionId,
+        databaseName
+      );
+    });
   }
 
   /**
    * Switch active database
    */
   switchDatabase(connectionId: string, databaseName: string): void {
-    // Deactivate all databases for this connection
-    this.db.prepare('UPDATE databases SET is_active = 0 WHERE connection_id = ?').run(connectionId);
+    this.executeWithRetry(() => {
+      // Deactivate all databases for this connection
+      this.db.prepare('UPDATE databases SET is_active = 0 WHERE connection_id = ?').run(connectionId);
 
-    // Activate the specified database
-    this.db.prepare('UPDATE databases SET is_active = 1 WHERE connection_id = ? AND name = ?')
-      .run(connectionId, databaseName);
+      // Activate the specified database
+      this.db.prepare('UPDATE databases SET is_active = 1 WHERE connection_id = ? AND name = ?')
+        .run(connectionId, databaseName);
+    });
   }
 
   /**
@@ -545,23 +658,30 @@ export class DatabaseManager {
     statusCode: number,
     durationMs: number
   ): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO request_logs (
-        api_key_id, endpoint, method, request_body, response_body,
-        status_code, duration_ms, timestamp
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    try {
+      this.executeWithRetry(() => {
+        const stmt = this.db.prepare(`
+          INSERT INTO request_logs (
+            api_key_id, endpoint, method, request_body, response_body,
+            status_code, duration_ms, timestamp
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-    stmt.run(
-      apiKeyId,
-      endpoint,
-      method,
-      requestBody ? JSON.stringify(requestBody) : null,
-      responseBody ? JSON.stringify(responseBody) : null,
-      statusCode,
-      durationMs,
-      Date.now()
-    );
+        stmt.run(
+          apiKeyId,
+          endpoint,
+          method,
+          requestBody ? JSON.stringify(requestBody) : null,
+          responseBody ? JSON.stringify(responseBody) : null,
+          statusCode,
+          durationMs,
+          Date.now()
+        );
+      });
+    } catch (error: any) {
+      // Log failure but don't crash the request
+      console.error('Failed to log request after retries:', error.message);
+    }
   }
 
   /**
@@ -668,10 +788,12 @@ export class DatabaseManager {
    * Clear old logs (older than days)
    */
   clearOldLogs(days: number = 30): number {
-    const cutoffTime = Date.now() - days * 24 * 60 * 60 * 1000;
-    const stmt = this.db.prepare('DELETE FROM request_logs WHERE timestamp < ?');
-    const result = stmt.run(cutoffTime);
-    return result.changes;
+    return this.executeWithRetry(() => {
+      const cutoffTime = Date.now() - days * 24 * 60 * 60 * 1000;
+      const stmt = this.db.prepare('DELETE FROM request_logs WHERE timestamp < ?');
+      const result = stmt.run(cutoffTime);
+      return result.changes;
+    });
   }
 
   // ============================================================================
@@ -691,19 +813,37 @@ export class DatabaseManager {
    * Set setting value
    */
   setSetting(key: string, value: string): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO settings (key, value) VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = ?
-    `);
-    stmt.run(key, value, value);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO settings (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = ?
+      `);
+      stmt.run(key, value, value);
+    });
+  }
+
+  /**
+   * Set setting value only if it doesn't already exist (atomic operation)
+   * Returns true if the value was set, false if it already existed
+   */
+  setSettingIfNotExists(key: string, value: string): boolean {
+    return this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)
+      `);
+      const result = stmt.run(key, value);
+      return result.changes > 0;
+    });
   }
 
   /**
    * Delete setting
    */
   deleteSetting(key: string): void {
-    const stmt = this.db.prepare('DELETE FROM settings WHERE key = ?');
-    stmt.run(key);
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare('DELETE FROM settings WHERE key = ?');
+      stmt.run(key);
+    });
   }
 }
 

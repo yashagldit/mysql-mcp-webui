@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 
+import https from 'https';
 import { getDatabaseManager } from './db/database-manager.js';
 import { getMcpServer } from './mcp/server.js';
 import { createHttpServer } from './http-server.js';
 import { getConnectionManager } from './db/connection-manager.js';
+import { loadEnvironment, getConfigSummary } from './config/environment.js';
+import { loadTlsConfig, createHttpsOptions } from './config/tls.js';
 
 async function main() {
   try {
     console.error('Starting MySQL MCP WebUI Server...');
+
+    // Load environment configuration
+    const config = loadEnvironment();
+    console.error(getConfigSummary(config));
 
     // Initialize database
     const dbManager = getDatabaseManager();
@@ -22,11 +29,7 @@ async function main() {
       console.error(`Found ${apiKeys.length} API key(s) in database`);
     }
 
-    // Get transport setting
-    const transport = process.env.TRANSPORT || dbManager.getSetting('transport') || 'http';
-    console.error(`Transport mode: ${transport}`);
-
-    if (transport === 'stdio') {
+    if (config.transport === 'stdio') {
       // Stdio mode - MCP + Web UI
       console.error('Running in stdio mode (MCP + Web UI)');
 
@@ -35,14 +38,13 @@ async function main() {
       await mcpServer.startStdio();
       console.error('MCP server started successfully');
 
-      // Also start HTTP server for Web UI
-      const port = parseInt(process.env.HTTP_PORT || dbManager.getSetting('httpPort') || '3000');
-      const app = createHttpServer();
+      // Also start HTTP server for Web UI (no HTTPS in stdio mode for Web UI)
+      const app = createHttpServer(config);
 
       try {
-        const server = app.listen(port, () => {
-          console.error(`Web UI available at: http://localhost:${port}`);
-          console.error(`API available at: http://localhost:${port}/api`);
+        const server = app.listen(config.httpPort, () => {
+          console.error(`Web UI available at: http://localhost:${config.httpPort}`);
+          console.error(`API available at: http://localhost:${config.httpPort}/api`);
         });
 
         // Graceful shutdown
@@ -74,23 +76,46 @@ async function main() {
         process.on('SIGTERM', () => shutdown('SIGTERM'));
         process.on('SIGINT', () => shutdown('SIGINT'));
       } catch (error) {
-        console.error(`Warning: Failed to start HTTP server on port ${port}:`, error);
+        console.error(`Warning: Failed to start HTTP server on port ${config.httpPort}:`, error);
         console.error('MCP server will continue running without Web UI');
       }
     } else {
       // HTTP mode - Both MCP and REST API
       console.error('Running in HTTP mode (MCP + REST API + Web UI)');
 
-      const port = parseInt(process.env.HTTP_PORT || dbManager.getSetting('httpPort') || '3000');
-      const app = createHttpServer();
+      const app = createHttpServer(config);
 
-      const server = app.listen(port, () => {
-        console.error(`HTTP server listening on port ${port}`);
-        console.error(`Web UI: http://localhost:${port}`);
-        console.error(`API: http://localhost:${port}/api`);
-        console.error(`MCP endpoint: http://localhost:${port}/mcp`);
-        console.error(`Health check: http://localhost:${port}/api/health`);
-      });
+      // Load TLS config if HTTPS is enabled
+      let server;
+      let protocol = 'http';
+
+      if (config.enableHttps && config.sslCertPath && config.sslKeyPath) {
+        try {
+          const tlsConfig = loadTlsConfig(config.sslCertPath, config.sslKeyPath);
+          if (tlsConfig) {
+            const httpsOptions = createHttpsOptions(tlsConfig);
+            server = https.createServer(httpsOptions, app);
+            protocol = 'https';
+            console.error('HTTPS enabled');
+          }
+        } catch (error) {
+          console.error('Failed to load TLS configuration:', error);
+          console.error('Falling back to HTTP');
+        }
+      }
+
+      // Fall back to HTTP if HTTPS failed or not configured
+      if (!server) {
+        server = app.listen(config.httpPort);
+      } else {
+        server.listen(config.httpPort);
+      }
+
+      console.error(`${protocol.toUpperCase()} server listening on port ${config.httpPort}`);
+      console.error(`Web UI: ${protocol}://localhost:${config.httpPort}`);
+      console.error(`API: ${protocol}://localhost:${config.httpPort}/api`);
+      console.error(`MCP endpoint: ${protocol}://localhost:${config.httpPort}/mcp`);
+      console.error(`Health check: ${protocol}://localhost:${config.httpPort}/api/health`);
 
       // Graceful shutdown
       const shutdown = async (signal: string) => {

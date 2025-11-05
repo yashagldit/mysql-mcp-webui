@@ -100,6 +100,9 @@ export function initDatabase(dbPath: string = DEFAULT_DB_PATH): Database.Databas
   // Enable WAL mode for better concurrency
   db.pragma('journal_mode = WAL');
 
+  // Set busy timeout to 5 seconds for handling concurrent writes
+  db.pragma('busy_timeout = 5000');
+
   // Execute schema
   db.exec(SCHEMA);
 

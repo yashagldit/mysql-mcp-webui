@@ -238,8 +238,87 @@ router.post('/:id/test', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/connections/:id/set-default
+ * Set this connection as the default for new MCP instances
+ * This does NOT affect currently running MCP instances
+ */
+router.post('/:id/set-default', async (req: Request, res: Response) => {
+  try {
+    const connection = dbManager.getConnection(req.params.id);
+
+    if (!connection) {
+      res.status(404).json({
+        success: false,
+        error: 'Connection not found',
+      });
+      return;
+    }
+
+    dbManager.setDefaultConnectionId(req.params.id);
+
+    res.json({
+      success: true,
+      data: {
+        message: `Set ${connection.name} as default connection`,
+        defaultConnection: req.params.id,
+        note: 'This will be used by new MCP instances. Running instances are not affected.',
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/connections/default
+ * Get the current default connection
+ */
+router.get('/default', async (req: Request, res: Response) => {
+  try {
+    const defaultConnId = dbManager.getDefaultConnectionId();
+
+    if (!defaultConnId) {
+      res.json({
+        success: true,
+        data: null,
+      });
+      return;
+    }
+
+    const connection = dbManager.getConnection(defaultConnId);
+
+    if (!connection) {
+      res.json({
+        success: true,
+        data: null,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: connection.id,
+        name: connection.name,
+        host: connection.host,
+        port: connection.port,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * POST /api/connections/:id/activate
- * Switch to this connection
+ * @deprecated Use /set-default instead
+ * Switch to this connection (backwards compatibility)
  */
 router.post('/:id/activate', async (req: Request, res: Response) => {
   try {
@@ -253,14 +332,15 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
       return;
     }
 
-    dbManager.switchConnection(req.params.id);
+    dbManager.setDefaultConnectionId(req.params.id);
 
     res.json({
       success: true,
       data: {
-        message: `Switched to connection: ${connection.name}`,
+        message: `Set ${connection.name} as default connection`,
         activeConnection: req.params.id,
         activeDatabase: connection.activeDatabase,
+        deprecated: 'This endpoint is deprecated. Use /set-default instead.',
       },
     });
   } catch (error) {

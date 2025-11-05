@@ -10,6 +10,7 @@ let masterKeyCache: string | null = null;
 
 /**
  * Get or create the master encryption key
+ * Uses atomic INSERT OR IGNORE to prevent race conditions between multiple instances
  */
 export function getMasterKey(): string {
   if (masterKeyCache) {
@@ -20,10 +21,23 @@ export function getMasterKey(): string {
   let masterKey = dbManager.getSetting('masterKey');
 
   if (!masterKey) {
-    // Generate new master key
-    masterKey = generateToken(64);
-    dbManager.setSetting('masterKey', masterKey);
-    console.error('Generated new master encryption key');
+    // Generate a candidate key
+    const candidateKey = generateToken(64);
+
+    // Try to insert only if not exists (atomic operation)
+    // Returns true if inserted, false if key already existed
+    const wasInserted = dbManager.setSettingIfNotExists('masterKey', candidateKey);
+
+    // Read the actual key (either ours or from another instance)
+    masterKey = dbManager.getSetting('masterKey');
+
+    if (wasInserted) {
+      console.error('Generated new master encryption key');
+    }
+
+    if (!masterKey) {
+      throw new Error('Failed to get or create master key');
+    }
   }
 
   masterKeyCache = masterKey;

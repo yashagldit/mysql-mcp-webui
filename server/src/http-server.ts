@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { authMiddleware, optionalAuthMiddleware, smartAuthMiddleware } from './api/middleware/auth.js';
 import { loggingMiddleware } from './api/middleware/logging.js';
+import { createApiRateLimiter, createQueryRateLimiter, createMcpRateLimiter } from './api/middleware/rate-limit.js';
 import connectionsRouter from './api/routes/connections.js';
 import databasesRouter from './api/routes/databases.js';
 import queryRouter from './api/routes/query.js';
@@ -11,11 +12,12 @@ import settingsRouter from './api/routes/settings.js';
 import apiKeysRouter from './api/routes/api-keys.js';
 import logsRouter from './api/routes/logs.js';
 import { getMcpServer } from './mcp/server.js';
+import type { EnvironmentConfig } from './config/environment.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function createHttpServer(): Express {
+export function createHttpServer(config: EnvironmentConfig): Express {
   const app = express();
 
   // Middleware
@@ -35,6 +37,20 @@ export function createHttpServer(): Express {
 
   // Database logging (logs requests with API key)
   app.use(loggingMiddleware);
+
+  // Rate limiting (if enabled)
+  if (config.rateLimitEnabled) {
+    const apiRateLimiter = createApiRateLimiter(config.rateLimitWindowMs, config.rateLimitMaxRequests);
+    const queryRateLimiter = createQueryRateLimiter(60 * 1000, 30); // 30 queries per minute
+    const mcpRateLimiter = createMcpRateLimiter(config.rateLimitWindowMs, config.rateLimitMaxRequests);
+
+    // Apply rate limiters to appropriate routes
+    app.use('/api', apiRateLimiter);
+    app.use('/api/query', queryRateLimiter);
+    app.use('/mcp', mcpRateLimiter);
+
+    console.log(`Rate limiting enabled: ${config.rateLimitMaxRequests} requests per ${config.rateLimitWindowMs / 1000}s`);
+  }
 
   // Health check endpoint (public, no auth)
   app.get('/api/health', async (req, res, next) => {

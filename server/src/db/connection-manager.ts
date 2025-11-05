@@ -9,6 +9,24 @@ export class ConnectionManager {
   private dbManager = getDatabaseManager();
   private masterKey = getMasterKey();
 
+  // In-memory active connection state (per process instance)
+  private activeConnectionId: string | null = null;
+  private activeDatabases: Map<string, string> = new Map(); // connectionId -> databaseName
+
+  constructor() {
+    // Initialize active connection from default on startup
+    const defaultConnId = this.dbManager.getDefaultConnectionId();
+    if (defaultConnId) {
+      this.activeConnectionId = defaultConnId;
+
+      // Try to load the active database for this connection
+      const activeDb = this.dbManager.getActiveDatabase(defaultConnId);
+      if (activeDb) {
+        this.activeDatabases.set(defaultConnId, activeDb);
+      }
+    }
+  }
+
   /**
    * Get or create a connection pool for a specific connection
    */
@@ -61,25 +79,80 @@ export class ConnectionManager {
   }
 
   /**
+   * Get the currently active connection ID (in-memory state)
+   */
+  getActiveConnectionId(): string | null {
+    return this.activeConnectionId;
+  }
+
+  /**
+   * Set the active connection ID (in-memory state only)
+   */
+  setActiveConnectionId(connectionId: string): void {
+    // Validate connection exists
+    const conn = this.dbManager.getConnection(connectionId);
+    if (!conn) {
+      throw new Error(`Connection ${connectionId} not found`);
+    }
+
+    this.activeConnectionId = connectionId;
+
+    // If there's no active database for this connection, try to set one
+    if (!this.activeDatabases.has(connectionId)) {
+      const dbConfig = this.dbManager.getActiveDatabase(connectionId);
+      if (dbConfig) {
+        this.activeDatabases.set(connectionId, dbConfig);
+      }
+    }
+  }
+
+  /**
+   * Get the active database for a connection (in-memory state)
+   */
+  getActiveDatabase(connectionId?: string): string | null {
+    const connId = connectionId || this.activeConnectionId;
+    if (!connId) return null;
+
+    return this.activeDatabases.get(connId) || null;
+  }
+
+  /**
+   * Set the active database for a connection (in-memory state only)
+   */
+  setActiveDatabase(connectionId: string, database: string): void {
+    // Validate connection and database exist
+    const conn = this.dbManager.getConnection(connectionId);
+    if (!conn) {
+      throw new Error(`Connection ${connectionId} not found`);
+    }
+
+    const dbConfig = this.dbManager.getDatabaseConfig(connectionId, database);
+    if (!dbConfig) {
+      throw new Error(`Database ${database} not found for connection ${connectionId}`);
+    }
+
+    this.activeDatabases.set(connectionId, database);
+  }
+
+  /**
    * Get the pool for the currently active connection
    */
   async getActivePool(): Promise<{ pool: Pool; connectionId: string; database: string }> {
-    const connection = this.dbManager.getActiveConnection();
-
-    if (!connection) {
+    if (!this.activeConnectionId) {
       throw new Error('No active connection configured');
     }
 
-    if (!connection.activeDatabase) {
+    const database = this.getActiveDatabase(this.activeConnectionId);
+    if (!database) {
       throw new Error('No active database selected');
     }
 
-    const pool = await this.getPool(connection.id);
+    const pool = await this.getPool(this.activeConnectionId);
 
     return {
       pool,
-      connectionId: connection.id,
-      database: connection.activeDatabase,
+      connectionId: this.activeConnectionId,
+      database,
     };
   }
 
