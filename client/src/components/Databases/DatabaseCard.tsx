@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Database as DatabaseIcon, Check, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Database as DatabaseIcon, Check, Shield, Table2 } from 'lucide-react';
 import { Card, Badge, Button } from '../Common';
 import { PermissionsModal } from './PermissionsModal';
 import { useActivateDatabase } from '../../hooks/useDatabases';
@@ -14,6 +15,7 @@ interface DatabaseCardProps {
 export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connectionId }) => {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const activateMutation = useActivateDatabase();
+  const navigate = useNavigate();
 
   const permissions = database.permissions;
 
@@ -28,6 +30,22 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
     } catch (error) {
       console.error('Failed to activate database:', error);
     }
+  };
+
+  const handleBrowse = async () => {
+    // Activate database if not already active, then navigate to browse page
+    if (!database.isActive) {
+      try {
+        await activateMutation.mutateAsync({
+          connectionId,
+          dbName: database.name,
+        });
+      } catch (error) {
+        console.error('Failed to activate database:', error);
+        return;
+      }
+    }
+    navigate('/browse');
   };
 
   return (
@@ -98,7 +116,7 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-2">
           {!database.isActive && (
             <Button
               size="sm"
@@ -111,16 +129,27 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
               Activate
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setShowPermissionsModal(true)}
-            fullWidth
-            className={database.isActive ? 'col-span-2' : ''}
-          >
-            <Shield className="w-4 h-4 mr-1" />
-            Permissions
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleBrowse}
+              loading={activateMutation.isPending}
+              fullWidth
+            >
+              <Table2 className="w-4 h-4 mr-1" />
+              Browse
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowPermissionsModal(true)}
+              fullWidth
+            >
+              <Shield className="w-4 h-4 mr-1" />
+              Permissions
+            </Button>
+          </div>
         </div>
       </Card>
 
