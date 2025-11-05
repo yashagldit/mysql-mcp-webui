@@ -114,7 +114,12 @@ router.post('/:connId/databases/:dbName/activate', async (req: Request, res: Res
       return;
     }
 
+    // Switch the database
     dbManager.switchDatabase(connId, dbName);
+
+    // Also set this connection as the default so /api/active returns the correct state
+    // This ensures the UI reflects the database switch immediately
+    dbManager.setDefaultConnectionId(connId);
 
     res.json({
       success: true,
