@@ -16,6 +16,7 @@
     "build:client": "npm run build --workspace=client",
     "start": "npm run start --workspace=server",
     "start:http": "TRANSPORT=http npm run start --workspace=server",
+    "start:http:prod": "NODE_ENV=production TRANSPORT=http npm run start --workspace=server",
     "start:stdio": "TRANSPORT=stdio npm run start --workspace=server",
     "install:global": "npm run build && npm install -g .",
     "clean": "rm -rf node_modules server/node_modules client/node_modules server/dist client/dist"
