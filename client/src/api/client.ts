@@ -19,6 +19,11 @@ import type {
   UpdateApiKeyRequest,
   RequestLog,
   LogsStats,
+  TableListResponse,
+  TableStructureResponse,
+  TableDataResponse,
+  TableInfoResponse,
+  TableIndexesResponse,
 } from '../types';
 
 class ApiClient {
@@ -228,6 +233,34 @@ class ApiClient {
 
   async clearOldLogs(days: number = 30): Promise<{ deleted: number; message: string }> {
     const { data } = await this.client.delete<ApiResponse<{ deleted: number; message: string }>>('/logs', { params: { days } });
+    return data.data;
+  }
+
+  // Browse endpoints
+  async getTables(): Promise<TableListResponse> {
+    const { data } = await this.client.get<ApiResponse<TableListResponse>>('/browse/tables');
+    return data.data;
+  }
+
+  async getTableStructure(tableName: string): Promise<TableStructureResponse> {
+    const { data } = await this.client.get<ApiResponse<TableStructureResponse>>(`/browse/tables/${encodeURIComponent(tableName)}/structure`);
+    return data.data;
+  }
+
+  async getTableData(tableName: string, page: number = 1, pageSize: number = 50): Promise<TableDataResponse> {
+    const { data } = await this.client.get<ApiResponse<TableDataResponse>>(`/browse/tables/${encodeURIComponent(tableName)}/data`, {
+      params: { page, pageSize },
+    });
+    return data.data;
+  }
+
+  async getTableInfo(tableName: string): Promise<TableInfoResponse> {
+    const { data } = await this.client.get<ApiResponse<TableInfoResponse>>(`/browse/tables/${encodeURIComponent(tableName)}/info`);
+    return data.data;
+  }
+
+  async getTableIndexes(tableName: string): Promise<TableIndexesResponse> {
+    const { data } = await this.client.get<ApiResponse<TableIndexesResponse>>(`/browse/tables/${encodeURIComponent(tableName)}/indexes`);
     return data.data;
   }
 }

@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { AuthPage } from './pages/AuthPage';
 import { ConnectionsPage } from './pages/ConnectionsPage';
 import { DatabasesPage } from './pages/DatabasesPage';
+import { BrowserPage } from './pages/BrowserPage';
 import { QueryPage } from './pages/QueryPage';
 import { ApiKeysPage } from './pages/ApiKeysPage';
 import { LogsPage } from './pages/LogsPage';
@@ -27,6 +28,7 @@ function AppContent() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/connections" element={<ConnectionsPage />} />
                   <Route path="/databases" element={<DatabasesPage />} />
+                  <Route path="/browse" element={<BrowserPage />} />
                   <Route path="/query" element={<QueryPage />} />
                   <Route path="/api-keys" element={<ApiKeysPage />} />
                   <Route path="/logs" element={<LogsPage />} />

@@ -8,6 +8,7 @@ import {
   Settings,
   Key,
   FileText,
+  Table2,
 } from 'lucide-react';
 
 interface NavItem {
@@ -20,6 +21,7 @@ const navItems: NavItem[] = [
   { path: '/', label: 'Dashboard', icon: <Home className="w-5 h-5" /> },
   { path: '/connections', label: 'Connections', icon: <Server className="w-5 h-5" /> },
   { path: '/databases', label: 'Databases', icon: <Database className="w-5 h-5" /> },
+  { path: '/browse', label: 'Browse Data', icon: <Table2 className="w-5 h-5" /> },
   { path: '/query', label: 'Query Tester', icon: <Play className="w-5 h-5" /> },
   { path: '/api-keys', label: 'API Keys', icon: <Key className="w-5 h-5" /> },
   { path: '/logs', label: 'Request Logs', icon: <FileText className="w-5 h-5" /> },
