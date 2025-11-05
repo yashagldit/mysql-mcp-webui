@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute, useAuth } from './components/Auth';
 import { ChangePasswordModal } from './components/Auth/ChangePasswordModal';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { LayoutWrapper } from './components/Layout/LayoutWrapper';
 import { Dashboard } from './pages/Dashboard';
 import { AuthPage } from './pages/AuthPage';
@@ -50,9 +51,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
