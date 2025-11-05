@@ -87,15 +87,15 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
       <div className="space-y-6">
         {permissionGroups.map((group) => (
-          <div key={group.title} className="border-b border-gray-200 pb-4 last:border-0">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">{group.title}</h3>
-            <p className="text-xs text-gray-500 mb-3">{group.description}</p>
+          <div key={group.title} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">{group.title}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{group.description}</p>
             <div className="space-y-3">
               {group.permissions.map((perm) => (
                 <div key={perm.key} className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{perm.label}</p>
-                    <p className="text-xs text-gray-500">{perm.description}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{perm.label}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{perm.description}</p>
                   </div>
                   <Toggle
                     checked={permissions[perm.key]}
@@ -108,7 +108,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
         ))}
       </div>
 
-      <div className="flex space-x-2 pt-6 border-t border-gray-200 mt-6">
+      <div className="flex space-x-2 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
         <Button onClick={handleSave} loading={updateMutation.isPending}>
           Save Permissions
         </Button>

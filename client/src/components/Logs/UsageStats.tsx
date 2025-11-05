@@ -25,8 +25,8 @@ export const UsageStats: React.FC = () => {
             <Activity className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <p className="text-sm text-gray-600">Total Requests</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.totalRequests}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Total Requests</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalRequests}</p>
           </div>
         </div>
       </Card>
@@ -38,11 +38,11 @@ export const UsageStats: React.FC = () => {
               <TrendingUp className="w-6 h-6 text-green-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-600">Most Active Key</p>
-              <p className="text-sm font-semibold text-gray-900 truncate">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Most Active Key</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {topApiKey.api_key_id}
               </p>
-              <p className="text-xs text-gray-500">{topApiKey.count} requests</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{topApiKey.count} requests</p>
             </div>
           </div>
         </Card>
@@ -55,11 +55,11 @@ export const UsageStats: React.FC = () => {
               <BarChart3 className="w-6 h-6 text-purple-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-600">Most Used Endpoint</p>
-              <p className="text-sm font-mono font-semibold text-gray-900 truncate">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Most Used Endpoint</p>
+              <p className="text-sm font-mono font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {topEndpoint.endpoint}
               </p>
-              <p className="text-xs text-gray-500">{topEndpoint.count} requests</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{topEndpoint.count} requests</p>
             </div>
           </div>
         </Card>

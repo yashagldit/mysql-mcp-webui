@@ -11,7 +11,7 @@ interface LogsTableProps {
 export const LogsTable: React.FC<LogsTableProps> = ({ logs, onRowClick }) => {
   if (logs.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         No request logs available
       </div>
     );
@@ -56,39 +56,39 @@ export const LogsTable: React.FC<LogsTableProps> = ({ logs, onRowClick }) => {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-900">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Timestamp
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Method
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Endpoint
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               SQL Query
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Duration
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
           {logs.map((log) => {
             const sqlQuery = extractSqlQuery(log.request_body);
             return (
               <tr
                 key={log.id}
                 onClick={() => onRowClick(log)}
-                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                   {formatDate(log.timestamp)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -96,16 +96,16 @@ export const LogsTable: React.FC<LogsTableProps> = ({ logs, onRowClick }) => {
                     {log.method}
                   </Badge>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-mono">
                   {log.endpoint}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600 font-mono max-w-xs">
+                <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono max-w-xs">
                   {sqlQuery ? (
                     <span className="block truncate" title={sqlQuery}>
                       {truncateQuery(sqlQuery)}
                     </span>
                   ) : (
-                    <span className="text-gray-400">-</span>
+                    <span className="text-gray-400 dark:text-gray-500">-</span>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -113,7 +113,7 @@ export const LogsTable: React.FC<LogsTableProps> = ({ logs, onRowClick }) => {
                     {log.status_code}
                   </Badge>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                   {log.duration_ms}ms
                 </td>
               </tr>

@@ -136,9 +136,9 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
           <div className="flex items-center gap-3">
             <Table2 className="w-6 h-6 text-blue-600" />
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{tableName}</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{tableName}</h2>
               {infoData && infoData.table_rows !== undefined && infoData.data_length !== undefined && (
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {infoData.table_rows.toLocaleString()} rows • {formatBytes(infoData.data_length)} data • {infoData.engine} engine
                 </p>
               )}
@@ -149,7 +149,7 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
 
       {/* Tabs */}
       <Card padding="none">
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <div className="flex space-x-1 px-4">
             {[
               { id: 'data', label: 'Browse Data', icon: DatabaseIcon },
@@ -163,7 +163,7 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                 className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -185,14 +185,14 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
               ) : tableData && tableData.rows.length > 0 ? (
                 <>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-900">
                         <tr>
                           {tableData.columns.map((col) => (
                             <th
                               key={col}
                               onClick={() => handleSort(col)}
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100 select-none"
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none"
                             >
                               <div className="flex items-center gap-1">
                                 <span>{col}</span>
@@ -208,13 +208,13 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {sortedRows.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
+                          <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                             {tableData.columns.map((col) => (
-                              <td key={col} className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                              <td key={col} className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
                                 {row[col] === null ? (
-                                  <span className="text-gray-400 italic">NULL</span>
+                                  <span className="text-gray-400 dark:text-gray-500 italic">NULL</span>
                                 ) : (
                                   String(row[col])
                                 )}
@@ -228,8 +228,8 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
 
                   {/* Pagination */}
                   {tableData.pagination.totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                      <div className="text-sm text-gray-600">
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
                         Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, tableData.pagination.total)} of {tableData.pagination.total} rows
                       </div>
                       <div className="flex items-center gap-2">
@@ -242,7 +242,7 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                         >
                           Previous
                         </Button>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
                           Page {page} of {tableData.pagination.totalPages}
                         </span>
                         <Button
@@ -277,49 +277,49 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                 </div>
               ) : structureData ? (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-900">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Field
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Type
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Null
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Key
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Default
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Extra
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {structureData.columns.map((col, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
                             <div className="flex items-center gap-2">
                               {col.Key === 'PRI' && <Key className="w-4 h-4 text-yellow-500" />}
                               {col.Field}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            <code className="bg-gray-100 px-2 py-1 rounded text-xs">{col.Type}</code>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">{col.Type}</code>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{col.Null}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{col.Null}</td>
                           <td className="px-4 py-3 text-sm">
                             {col.Key && <Badge variant={col.Key === 'PRI' ? 'warning' : 'default'} size="sm">{col.Key}</Badge>}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {col.Default === null ? <span className="text-gray-400 italic">NULL</span> : col.Default}
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {col.Default === null ? <span className="text-gray-400 dark:text-gray-500 italic">NULL</span> : col.Default}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{col.Extra}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{col.Extra}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -340,11 +340,11 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
 
                 {/* SQL Editor */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">SQL Query</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SQL Query</label>
                   <textarea
                     value={querySql}
                     onChange={(e) => setQuerySql(e.target.value)}
-                    className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                    className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     placeholder="SELECT * FROM tablename"
                   />
                 </div>
@@ -381,8 +381,8 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                 {executeMutation.isSuccess && executeMutation.data && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-gray-900">Results</h3>
-                      <div className="text-sm text-gray-600">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Results</h3>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
                         <span className="font-medium">{executeMutation.data.rowCount}</span> row
                         {executeMutation.data.rowCount !== 1 ? 's' : ''} •{' '}
                         <span className="font-medium">{executeMutation.data.executionTime}</span>
@@ -413,67 +413,67 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
               ) : infoData ? (
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">General Information</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">General Information</h3>
                     <dl className="space-y-2">
                       <div>
-                        <dt className="text-xs text-gray-600">Table Name</dt>
-                        <dd className="text-sm font-medium text-gray-900">{infoData.table_name}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Table Name</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{infoData.table_name}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Engine</dt>
-                        <dd className="text-sm font-medium text-gray-900">{infoData.engine}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Engine</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{infoData.engine}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Collation</dt>
-                        <dd className="text-sm font-medium text-gray-900">{infoData.table_collation}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Collation</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{infoData.table_collation}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Comment</dt>
-                        <dd className="text-sm text-gray-900">{infoData.table_comment || 'None'}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Comment</dt>
+                        <dd className="text-sm text-gray-900 dark:text-gray-100">{infoData.table_comment || 'None'}</dd>
                       </div>
                     </dl>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">Statistics</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Statistics</h3>
                     <dl className="space-y-2">
                       <div>
-                        <dt className="text-xs text-gray-600">Rows</dt>
-                        <dd className="text-sm font-medium text-gray-900">{infoData.table_rows?.toLocaleString() || '0'}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Rows</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{infoData.table_rows?.toLocaleString() || '0'}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Avg Row Length</dt>
-                        <dd className="text-sm font-medium text-gray-900">{formatBytes(infoData.avg_row_length || 0)}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Avg Row Length</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatBytes(infoData.avg_row_length || 0)}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Data Size</dt>
-                        <dd className="text-sm font-medium text-gray-900">{formatBytes(infoData.data_length || 0)}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Data Size</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatBytes(infoData.data_length || 0)}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Index Size</dt>
-                        <dd className="text-sm font-medium text-gray-900">{formatBytes(infoData.index_length || 0)}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Index Size</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatBytes(infoData.index_length || 0)}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Total Size</dt>
-                        <dd className="text-sm font-medium text-gray-900">{formatBytes((infoData.data_length || 0) + (infoData.index_length || 0))}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Total Size</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatBytes((infoData.data_length || 0) + (infoData.index_length || 0))}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Auto Increment</dt>
-                        <dd className="text-sm font-medium text-gray-900">{infoData.auto_increment?.toLocaleString() || 'N/A'}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Auto Increment</dt>
+                        <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{infoData.auto_increment?.toLocaleString() || 'N/A'}</dd>
                       </div>
                     </dl>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">Timestamps</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Timestamps</h3>
                     <dl className="space-y-2">
                       <div>
-                        <dt className="text-xs text-gray-600">Created</dt>
-                        <dd className="text-sm text-gray-900">{formatDate(infoData.create_time)}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Created</dt>
+                        <dd className="text-sm text-gray-900 dark:text-gray-100">{formatDate(infoData.create_time)}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-gray-600">Last Updated</dt>
-                        <dd className="text-sm text-gray-900">{formatDate(infoData.update_time)}</dd>
+                        <dt className="text-xs text-gray-600 dark:text-gray-400">Last Updated</dt>
+                        <dd className="text-sm text-gray-900 dark:text-gray-100">{formatDate(infoData.update_time)}</dd>
                       </div>
                     </dl>
                   </div>

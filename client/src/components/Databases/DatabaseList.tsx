@@ -40,8 +40,8 @@ export const DatabaseList: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Databases</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Databases</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
           From connection: <span className="font-medium">{activeConnection.name}</span>
         </p>
       </div>
@@ -49,8 +49,8 @@ export const DatabaseList: React.FC = () => {
       {databases && databases.length === 0 ? (
         <Card>
           <div className="text-center py-12">
-            <p className="text-gray-600 mb-4">No databases found</p>
-            <p className="text-sm text-gray-500">
+            <p className="text-gray-600 dark:text-gray-400 mb-4">No databases found</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Click "Discover" on the connection to find databases
             </p>
           </div>

@@ -64,8 +64,8 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
             <DatabaseIcon className="w-6 h-6 text-green-600" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">{database.name}</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{database.name}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {permissionCount} permission{permissionCount !== 1 ? 's' : ''} enabled
             </p>
           </div>

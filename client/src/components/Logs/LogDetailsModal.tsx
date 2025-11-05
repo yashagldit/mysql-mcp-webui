@@ -39,15 +39,15 @@ export const LogDetailsModal: React.FC<LogDetailsModalProps> = ({ logId, isOpen,
             {/* Metadata */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-600">Timestamp</label>
-                <p className="text-sm text-gray-900 mt-1">{formatDate(log.timestamp)}</p>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Timestamp</label>
+                <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{formatDate(log.timestamp)}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Duration</label>
-                <p className="text-sm text-gray-900 mt-1">{log.duration_ms}ms</p>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Duration</label>
+                <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{log.duration_ms}ms</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Method</label>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Method</label>
                 <div className="mt-1">
                   <Badge variant="info" size="sm">
                     {log.method}
@@ -55,7 +55,7 @@ export const LogDetailsModal: React.FC<LogDetailsModalProps> = ({ logId, isOpen,
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Status Code</label>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Status Code</label>
                 <div className="mt-1">
                   <Badge variant={getStatusColor(log.status_code)} size="sm">
                     {log.status_code}
@@ -63,19 +63,19 @@ export const LogDetailsModal: React.FC<LogDetailsModalProps> = ({ logId, isOpen,
                 </div>
               </div>
               <div className="col-span-2">
-                <label className="text-sm font-medium text-gray-600">Endpoint</label>
-                <p className="text-sm text-gray-900 mt-1 font-mono">{log.endpoint}</p>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Endpoint</label>
+                <p className="text-sm text-gray-900 dark:text-gray-100 mt-1 font-mono">{log.endpoint}</p>
               </div>
               <div className="col-span-2">
-                <label className="text-sm font-medium text-gray-600">API Key ID</label>
-                <p className="text-sm text-gray-900 mt-1 font-mono">{log.api_key_id}</p>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">API Key ID</label>
+                <p className="text-sm text-gray-900 dark:text-gray-100 mt-1 font-mono">{log.api_key_id}</p>
               </div>
             </div>
 
             {/* Request Body */}
             {log.request_body && (
               <div>
-                <label className="text-sm font-medium text-gray-600 mb-2 block">Request Body</label>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block">Request Body</label>
                 <CodeBlock
                   code={JSON.stringify(JSON.parse(log.request_body), null, 2)}
                   language="json"
@@ -97,7 +97,7 @@ export const LogDetailsModal: React.FC<LogDetailsModalProps> = ({ logId, isOpen,
                     return (
                       <>
                         <div className="mb-4">
-                          <label className="text-sm font-medium text-gray-600 mb-2 block">Response Content</label>
+                          <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block">Response Content</label>
                           <CodeBlock
                             code={textContent.text}
                             language="text"
@@ -105,7 +105,7 @@ export const LogDetailsModal: React.FC<LogDetailsModalProps> = ({ logId, isOpen,
                           />
                         </div>
                         <div>
-                          <label className="text-sm font-medium text-gray-600 mb-2 block">Full Response Body</label>
+                          <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block">Full Response Body</label>
                           <CodeBlock
                             code={JSON.stringify(parsed, null, 2)}
                             language="json"
@@ -120,7 +120,7 @@ export const LogDetailsModal: React.FC<LogDetailsModalProps> = ({ logId, isOpen,
                 // Default: show as JSON
                 return (
                   <div>
-                    <label className="text-sm font-medium text-gray-600 mb-2 block">Response Body</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block">Response Body</label>
                     <CodeBlock
                       code={JSON.stringify(parsed, null, 2)}
                       language="json"
@@ -132,7 +132,7 @@ export const LogDetailsModal: React.FC<LogDetailsModalProps> = ({ logId, isOpen,
                 // If parsing fails, show raw
                 return (
                   <div>
-                    <label className="text-sm font-medium text-gray-600 mb-2 block">Response Body</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block">Response Body</label>
                     <CodeBlock
                       code={log.response_body}
                       language="text"

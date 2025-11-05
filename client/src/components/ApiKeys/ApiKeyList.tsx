@@ -29,8 +29,8 @@ export const ApiKeyList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">API Keys</h1>
-          <p className="text-gray-600 mt-1">Manage authentication keys for API access</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">API Keys</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage authentication keys for API access</p>
         </div>
         <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
           Create New Key
@@ -41,8 +41,8 @@ export const ApiKeyList: React.FC = () => {
         <div className="flex items-start space-x-3 mb-4">
           <Key className="w-5 h-5 text-blue-600 mt-0.5" />
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">About API Keys</h3>
-            <p className="text-sm text-gray-600 mt-1">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">About API Keys</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               API keys are used to authenticate requests to the MySQL MCP server. Each key can be
               named for easy identification and tracking. Keep your keys secure and never share them
               publicly.
@@ -54,8 +54,8 @@ export const ApiKeyList: React.FC = () => {
       {apiKeys && apiKeys.length === 0 ? (
         <Card>
           <div className="text-center py-12">
-            <Key className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-4">No API keys configured yet</p>
+            <Key className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <p className="text-gray-600 dark:text-gray-400 mb-4">No API keys configured yet</p>
             <Button onClick={() => setShowCreateModal(true)}>Create Your First API Key</Button>
           </div>
         </Card>
