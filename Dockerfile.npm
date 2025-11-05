@@ -1,0 +1,41 @@
+# MySQL MCP WebUI - Dockerfile using npm package
+# This Dockerfile installs the pre-built package from npm
+# Use this ONLY if the package is published to npm
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Build argument for port (can be overridden at build time)
+ARG HTTP_PORT=3000
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Install the package from npm (contains pre-built files)
+# Replace "latest" with specific version for production
+RUN npm install -g mysql-mcp-webui@latest && \
+    npm cache clean --force
+
+# Create data directory for SQLite database
+RUN mkdir -p /app/data && \
+    chown -R nodejs:nodejs /app/data
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port (uses build arg)
+EXPOSE ${HTTP_PORT}
+
+# Health check (uses environment variable at runtime)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "const port = process.env.HTTP_PORT || 3000; require('http').get('http://localhost:' + port + '/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+
+# Set environment variables
+ENV NODE_ENV=production \
+    TRANSPORT=http \
+    HTTP_PORT=${HTTP_PORT}
+
+# Start the server (if installed globally, use the command directly)
+CMD ["mysql-mcp-webui"]
