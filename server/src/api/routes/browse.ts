@@ -23,7 +23,8 @@ async function validateTableName(tableName: string): Promise<void> {
   // Verify table exists in database by querying SHOW TABLES
   const result = await queryExecutor.executeQuery('SHOW TABLES');
   const validTables = result.rows.map(row => {
-    const values = Object.values(row);
+    const rowObj = row as Record<string, unknown>;
+    const values = Object.values(rowObj);
     return values[0] as string;
   });
 
