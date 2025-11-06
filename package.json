@@ -1,11 +1,21 @@
 {
   "name": "mysql-mcp-webui",
-  "version": "1.0.0",
+  "version": "0.0.4",
   "description": "MySQL MCP server with React-based web UI for live configuration management",
-  "private": true,
   "workspaces": [
     "server",
     "client"
+  ],
+  "bin": {
+    "mysql-mcp-webui": "server/dist/index.js"
+  },
+  "files": [
+    "server/dist",
+    "server/public",
+    "data/.gitkeep",
+    "README.md",
+    "LICENSE",
+    "DEPLOYMENT.md"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
@@ -19,7 +29,8 @@
     "start:http:prod": "NODE_ENV=production TRANSPORT=http npm run start --workspace=server",
     "start:stdio": "TRANSPORT=stdio npm run start --workspace=server",
     "install:global": "npm run build && npm install -g .",
-    "clean": "rm -rf node_modules server/node_modules client/node_modules server/dist client/dist"
+    "clean": "rm -rf node_modules server/node_modules client/node_modules server/dist client/dist",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",

@@ -48,3 +48,4 @@ server/public/
 
 # OS
 Thumbs.db
+*.tgz
