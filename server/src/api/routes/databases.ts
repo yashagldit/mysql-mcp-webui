@@ -114,7 +114,16 @@ router.post('/:connId/databases/:dbName/activate', async (req: Request, res: Res
       return;
     }
 
+    // Switch the database in SQLite (persistent storage)
     dbManager.switchDatabase(connId, dbName);
+
+    // Update in-memory state in ConnectionManager
+    connectionManager.setActiveConnectionId(connId);
+    connectionManager.setActiveDatabase(connId, dbName);
+
+    // Also set this connection as the default so /api/active returns the correct state
+    // This ensures the UI reflects the database switch immediately
+    dbManager.setDefaultConnectionId(connId);
 
     res.json({
       success: true,

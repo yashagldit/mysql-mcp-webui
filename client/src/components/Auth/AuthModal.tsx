@@ -47,11 +47,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
   return (
     <Modal isOpen={isOpen} onClose={() => {}} showCloseButton={false} size="sm">
       <div className="text-center mb-6">
-        <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+        <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
           {mode === 'credentials' ? (
-            <User className="w-6 h-6 text-blue-600" />
+            <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           ) : (
-            <Key className="w-6 h-6 text-blue-600" />
+            <Key className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           )}
         </div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome to MySQL MCP WebUI</h2>

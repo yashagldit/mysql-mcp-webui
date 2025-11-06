@@ -31,7 +31,7 @@ export const QueryTester: React.FC = () => {
   if (!activeState?.database) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Query Tester</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Query Tester</h1>
         <Alert type="warning" title="No Active Database">
           Please activate a database first from the Databases page.
         </Alert>
@@ -65,8 +65,8 @@ export const QueryTester: React.FC = () => {
       {activeState.permissions && (
         <Card padding="sm">
           <div className="flex items-center space-x-2 text-sm">
-            <AlertCircle className="w-4 h-4 text-blue-600" />
-            <span className="text-gray-600">Active Permissions:</span>
+            <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-gray-600 dark:text-gray-400">Active Permissions:</span>
             <div className="flex gap-1 flex-wrap">
               {Object.entries(activeState.permissions).map(([key, value]) =>
                 value ? (

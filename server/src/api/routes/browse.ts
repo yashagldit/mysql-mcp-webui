@@ -7,17 +7,69 @@ const queryExecutor = getQueryExecutor();
 
 /**
  * GET /api/browse/tables
- * List all tables in the active database
+ * List all tables in the active database with row counts
  */
 router.get('/tables', async (req: Request, res: Response) => {
   try {
-    const result = await queryExecutor.executeQuery('SHOW TABLES');
+    // Get tables and views with their types
+    const result = await queryExecutor.executeQuery('SHOW FULL TABLES');
 
-    // Extract table names from the result
-    const tables = result.rows.map(row => {
+    // Extract table names and types from the result
+    // SHOW FULL TABLES returns two columns: table name and table type (BASE TABLE or VIEW)
+    const allTables = result.rows.map(row => {
       const rowObj = row as Record<string, unknown>;
-      return Object.values(rowObj)[0] as string;
+      const values = Object.values(rowObj);
+      return {
+        name: values[0] as string,
+        type: values[1] as string,
+      };
     });
+
+    // Separate base tables from views
+    const baseTables = allTables.filter(t => t.type === 'BASE TABLE');
+    const views = allTables.filter(t => t.type === 'VIEW');
+
+    // Get accurate row counts only for base tables using COUNT(*)
+    // Build a UNION query to get all counts in one go for better performance
+    let tables: Array<{ name: string; rowCount: number; isView: boolean }>;
+
+    if (baseTables.length > 0) {
+      const countQueries = baseTables.map(t =>
+        `SELECT '${t.name.replace(/'/g, "''")}' as table_name, COUNT(*) as row_count FROM \`${t.name}\``
+      );
+
+      const unionQuery = countQueries.join(' UNION ALL ');
+      const countResult = await queryExecutor.executeQuery(unionQuery);
+
+      // Create a map of table name to row count
+      const rowCountMap = new Map<string, number>();
+      countResult.rows.forEach((row: any) => {
+        rowCountMap.set(row.table_name, Number(row.row_count || 0));
+      });
+
+      // Build table list with row counts for base tables
+      const baseTablesList = baseTables.map(t => ({
+        name: t.name,
+        rowCount: rowCountMap.get(t.name) || 0,
+        isView: false,
+      }));
+
+      // Add views with rowCount 0 (we don't count views to avoid definer issues)
+      const viewsList = views.map(v => ({
+        name: v.name,
+        rowCount: 0,
+        isView: true,
+      }));
+
+      tables = [...baseTablesList, ...viewsList];
+    } else {
+      // No base tables, only views
+      tables = views.map(v => ({
+        name: v.name,
+        rowCount: 0,
+        isView: true,
+      }));
+    }
 
     res.json({
       success: true,

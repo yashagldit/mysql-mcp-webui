@@ -14,7 +14,7 @@ export const Layout: React.FC<LayoutProps> = ({
   activeDatabase,
 }) => {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <Header activeConnection={activeConnection} activeDatabase={activeDatabase} />
       <div className="flex">
         <Sidebar />

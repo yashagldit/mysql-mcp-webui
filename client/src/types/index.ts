@@ -67,8 +67,14 @@ export interface QueryResult {
 }
 
 // Browse types
+export interface TableInfo {
+  name: string;
+  rowCount: number;
+  isView: boolean;
+}
+
 export interface TableListResponse {
-  tables: string[];
+  tables: TableInfo[];
 }
 
 export interface TableColumn {

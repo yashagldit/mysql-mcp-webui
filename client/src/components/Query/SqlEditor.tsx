@@ -1,5 +1,6 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface SqlEditorProps {
   value: string;
@@ -7,6 +8,8 @@ interface SqlEditorProps {
 }
 
 export const SqlEditor: React.FC<SqlEditorProps> = ({ value, onChange }) => {
+  const { resolvedTheme } = useTheme();
+
   const handleEditorChange = (value: string | undefined) => {
     onChange(value || '');
   };
@@ -18,7 +21,7 @@ export const SqlEditor: React.FC<SqlEditorProps> = ({ value, onChange }) => {
         defaultLanguage="sql"
         value={value}
         onChange={handleEditorChange}
-        theme="vs-light"
+        theme={resolvedTheme === 'dark' ? 'vs-dark' : 'vs-light'}
         options={{
           minimap: { enabled: false },
           fontSize: 14,

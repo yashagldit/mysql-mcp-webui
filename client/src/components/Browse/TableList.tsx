@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Table2, Database as DatabaseIcon, Search } from 'lucide-react';
+import { Table2, Database as DatabaseIcon, Search, Eye } from 'lucide-react';
 import { Card, Badge, Spinner } from '../Common';
 import { useTables } from '../../hooks/useBrowse';
 
@@ -19,7 +19,7 @@ export const TableList: React.FC<TableListProps> = ({ selectedTable, onTableSele
 
     const lowerSearch = searchTerm.toLowerCase();
     return data.tables.filter(table =>
-      table.toLowerCase().includes(lowerSearch)
+      table.name.toLowerCase().includes(lowerSearch)
     );
   }, [data?.tables, searchTerm]);
 
@@ -86,19 +86,36 @@ export const TableList: React.FC<TableListProps> = ({ selectedTable, onTableSele
             {searchTerm ? 'No tables found' : 'No tables'}
           </div>
         ) : (
-          filteredTables.map((tableName) => (
+          filteredTables.map((table) => (
             <button
-              key={tableName}
-              onClick={() => onTableSelect(tableName)}
+              key={table.name}
+              onClick={() => onTableSelect(table.name)}
               className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                selectedTable === tableName
+                selectedTable === table.name
                   ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Table2 className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{tableName}</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {table.isView ? (
+                    <Eye className="w-4 h-4 flex-shrink-0 text-purple-500 dark:text-purple-400" />
+                  ) : (
+                    <Table2 className="w-4 h-4 flex-shrink-0" />
+                  )}
+                  <span className="truncate">{table.name}</span>
+                </div>
+                <div className="flex-shrink-0">
+                  {table.isView ? (
+                    <Badge size="sm" variant="info">
+                      VIEW
+                    </Badge>
+                  ) : (
+                    <Badge size="sm" variant="default">
+                      {table.rowCount.toLocaleString()}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </button>
           ))
