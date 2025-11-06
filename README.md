@@ -1,471 +1,425 @@
-# MySQL MCP WebUI
+# MySQL MCP Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
+[![npm version](https://img.shields.io/badge/npm-v0.0.7-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
 
-A MySQL MCP (Model Context Protocol) server with a React-based web UI for live configuration management. Enable Claude AI to interact with your MySQL databases through a secure, intuitive interface.
+**Give Claude AI direct access to your MySQL databases through the Model Context Protocol (MCP).**
 
-## Features
+MySQL MCP Server enables Claude Desktop and Claude Code to execute SQL queries, explore databases, and interact with your MySQL data - all through a secure, permission-controlled interface.
 
-- **Dual Authentication System**: Username/password login for WebUI or API token authentication for programmatic access
-- **User Management**: Create and manage multiple users with secure password hashing (bcrypt)
-- **Web UI for Configuration**: Manage MySQL connections, databases, and permissions through an intuitive web interface
-- **Multi-Instance Support**: Run multiple Claude Desktop instances or HTTP sessions simultaneously with isolated state
-- **Auto-Discovery**: Automatically discovers databases from MySQL server connections
-- **Per-Database Permissions**: Fine-grained control over 8 different operation types (SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, TRUNCATE)
-- **Live Database Switching**: Switch between databases without restarting the server
-- **Dual Transport Support**: Works with both stdio and HTTP transports
-- **MCP Tools**: Three powerful tools for Claude to interact with your MySQL databases
-- **Production Ready**: HTTPS/TLS support, rate limiting, Docker deployment
-- **Secure**: AES-256-GCM password encryption, JWT authentication, API token support
-- **Multiple Connections**: Manage multiple MySQL server connections from a single interface
+## What is MCP?
+
+The [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI assistants like Claude securely connect to external data sources and tools. This MySQL MCP Server implements that protocol, giving Claude the ability to:
+
+- 🔍 **Query your databases** - Execute SQL queries with natural language
+- 📊 **Explore your data** - Browse tables, understand schema, and analyze data
+- 🔄 **Switch contexts** - Move between different databases seamlessly
+- 🔒 **Stay secure** - Every operation is validated against your permission rules
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-# Install dependencies
-npm install
+# Install globally via npm
+npm install -g mysql-mcp-webui
 
-# Build the project
-npm run build
+# Or run directly with npx
+npx mysql-mcp-webui
 ```
 
-### Development Mode
+### Setup in 3 Steps
+
+#### 1. Generate an API Key
 
 ```bash
-# Run server in development mode
-npm run dev:server
-
-# In another terminal, run client dev server (when ready)
-npm run dev:client
-
-# Or run both together
-npm run dev
+mysql-mcp-webui --generate-token
 ```
 
-### Production Mode
+This creates an authentication token. **Save it securely** - you'll need it for Claude Desktop.
 
-```bash
-# Build both server and client
-npm run build
+#### 2. Configure Claude Desktop
 
-# Start server in HTTP mode
-npm run start:http
-
-# Or start in stdio mode
-npm run start:stdio
-```
-
-### Docker Deployment (Recommended for Production)
-
-For production deployments with HTTPS, rate limiting, and multi-instance support:
-
-```bash
-# Clone and configure
-git clone <repository-url>
-cd MySQLMCP
-cp .env.example .env
-# Edit .env with your configuration
-
-# Start with Docker Compose
-docker-compose up -d
-
-# Access Web UI at http://localhost:9274
-# Login with default credentials: admin / admin
-# You'll be prompted to change the password on first login
-```
-
-**First Login:**
-- Username: `admin`
-- Password: `admin`
-- You will be forced to change the password immediately for security
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for comprehensive deployment guide including HTTPS setup, multi-instance configuration, and security best practices.
-
-## Multi-Instance Support
-
-MySQL MCP WebUI supports running multiple instances simultaneously with proper isolation:
-
-### stdio Mode (Multiple Processes)
-- Each Claude Desktop instance spawns a separate MCP server process
-- Each process maintains independent active connection/database state
-- Shared SQLite database with safe concurrent writes (WAL mode + retry logic)
-- **Use case**: Multiple Claude Desktop users on the same machine
-
-### HTTP Mode (Multiple Sessions)
-- Single Docker container serves multiple Claude Code sessions
-- Each HTTP session maintains isolated connection/database state
-- Session-based tracking with automatic cleanup (30 minutes)
-- **Use case**: Remote access from multiple developers or Claude Code instances
-
-### Default Connection Management
-
-The Web UI can set a "default connection" that new instances will use:
-
-1. Navigate to Connections in Web UI
-2. Click "Set as Default" on desired connection
-3. New MCP instances will start with this connection
-4. **Important**: Running instances are NOT affected
-
-This allows coordination across instances without disrupting active sessions.
-
-## MCP Tools
-
-### 1. `mysql_query`
-
-Execute SQL queries against the active database with permission validation.
-
-```json
-{
-  "name": "mysql_query",
-  "arguments": {
-    "sql": "SELECT * FROM users LIMIT 10"
-  }
-}
-```
-
-### 2. `list_databases`
-
-List all available databases with their permissions and metadata.
-
-```json
-{
-  "name": "list_databases",
-  "arguments": {
-    "include_metadata": true
-  }
-}
-```
-
-### 3. `switch_database`
-
-Switch to a different database in the active connection.
-
-```json
-{
-  "name": "switch_database",
-  "arguments": {
-    "database": "my_database"
-  }
-}
-```
-
-## REST API Endpoints
-
-### Authentication
-
-- `POST /api/auth/login` - Login with username/password or API token
-- `POST /api/auth/logout` - Logout (clears JWT cookie)
-- `GET /api/auth/me` - Get current user info (requires auth)
-- `POST /api/auth/change-password` - Change user password
-- `POST /api/auth/check-token` - Validate API token
-
-### User Management
-
-- `GET /api/users` - List all users (requires auth)
-- `POST /api/users` - Create new user (requires auth)
-- `PUT /api/users/:id` - Update user details (requires auth)
-- `PUT /api/users/:id/password` - Admin password reset (requires auth)
-- `DELETE /api/users/:id` - Delete user (requires auth)
-
-### Connections
-
-- `GET /api/connections` - List all connections
-- `POST /api/connections` - Add new connection
-- `GET /api/connections/:id` - Get specific connection
-- `PUT /api/connections/:id` - Update connection
-- `DELETE /api/connections/:id` - Delete connection
-- `POST /api/connections/:id/test` - Test connection
-- `POST /api/connections/:id/set-default` - Set as default for new instances
-- `GET /api/connections/default` - Get current default connection
-- `POST /api/connections/:id/activate` - Switch to connection (deprecated, use set-default)
-- `POST /api/connections/:id/discover` - Discover databases
-
-### Databases
-
-- `GET /api/connections/:id/databases` - List databases
-- `POST /api/connections/:connId/databases/:dbName/activate` - Switch database
-- `PUT /api/connections/:connId/databases/:dbName/permissions` - Update permissions
-
-### Queries
-
-- `POST /api/query` - Execute SQL query
-
-### API Keys
-
-- `GET /api/keys` - List all API keys
-- `POST /api/keys` - Create new API key
-- `PUT /api/keys/:id` - Update API key
-- `DELETE /api/keys/:id` - Revoke API key
-- `GET /api/keys/:id/logs` - Get API key usage logs
-
-### Request Logs
-
-- `GET /api/logs` - List request logs with pagination
-- `GET /api/logs/:id` - Get specific log entry
-- `GET /api/logs/stats` - Get logging statistics
-- `DELETE /api/logs?days=30` - Clear old logs
-
-### Settings
-
-- `GET /api/settings` - Get server settings
-- `GET /api/active` - Get current active state
-- `GET /api/health` - Health check (no auth required)
-
-### MCP
-
-- `POST /mcp` - MCP protocol endpoint (requires API key)
-
-## MCP Client Configuration
-
-### For Claude Desktop
-
-Add one of these configurations to your Claude Desktop config file (`~/.claude.json` or `~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-#### Option 1: HTTP Mode (For Already-Running Server)
-
-Use this when the server is already running (via `npm start` or docker):
+Add this to your Claude Desktop config file:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
-    "mysql-mcp": {
-      "type": "http",
-      "url": "http://localhost:9274/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_API_KEY_HERE"
-      }
-    }
-  }
-}
-```
-
-**When to use:**
-- Server is already running independently
-- Remote server access
-- Production deployments
-- Docker containers
-
-#### Option 2: Stdio Mode (Let Claude Desktop Manage Server)
-
-Use this to let Claude Desktop start and stop the server automatically:
-
-```json
-{
-  "mcpServers": {
-    "mysql-mcp": {
-      "command": "node",
-      "args": [
-        "/path/to/mysql-mcp-webui/server/dist/index.js"
-      ],
+    "mysql": {
+      "command": "npx",
+      "args": ["-y", "mysql-mcp-webui"],
       "env": {
         "TRANSPORT": "stdio",
-        "AUTH_TOKEN": "YOUR_API_KEY_HERE"
+        "AUTH_TOKEN": "your-api-key-here"
       }
     }
   }
 }
 ```
 
-**When to use:**
-- Local development
-- Want automatic server lifecycle management
-- Simpler setup (no need to manually start server)
+Replace `your-api-key-here` with the token from step 1.
 
-Replace `YOUR_API_KEY_HERE` with an API key from the Settings page.
+#### 3. Configure Your MySQL Connections
 
-## Configuration
+Open the Web UI at http://localhost:9274 (starts automatically when Claude Desktop launches the MCP server):
 
-Configuration is stored in SQLite database at `data/mysql-mcp.db`:
+1. **Login** with default credentials: `admin` / `admin` (you'll be prompted to change this)
+2. **Add a MySQL connection** with your database credentials
+3. **Test the connection** to verify it works
+4. **Discover databases** to auto-detect all available databases
+5. **Set permissions** for each database (SELECT, INSERT, UPDATE, etc.)
 
-- **Users**: User accounts for WebUI authentication with hashed passwords
-- **API Keys**: Multiple authentication keys for programmatic access and MCP
-- **Connections**: MySQL server connection details (encrypted passwords)
-- **Databases**: Per-database permissions and metadata
-- **Request Logs**: API and MCP request/response history
-- **Settings**: Server configuration (transport mode, port, etc.)
+**Restart Claude Desktop** to activate the MCP server.
+
+## The Three MCP Tools
+
+Once configured, Claude can use three powerful tools to interact with your MySQL databases:
+
+### 1. `mysql_query` - Execute SQL Queries
+
+Claude can run SQL queries against your active database with automatic permission validation.
+
+**Example conversation:**
+```
+You: "Show me the top 10 users by registration date"
+
+Claude uses: mysql_query
+SQL: SELECT id, username, email, created_at
+     FROM users
+     ORDER BY created_at DESC
+     LIMIT 10
+
+Response: [Query results displayed as a table]
+```
+
+**What happens:**
+1. Claude generates appropriate SQL based on your request
+2. Query is validated against database permissions (e.g., must have SELECT permission)
+3. Executes in a transaction (auto-rollback on error)
+4. Results formatted for easy reading
+
+### 2. `list_databases` - Explore Available Databases
+
+Claude can see all databases you've configured and their permissions.
+
+**Example conversation:**
+```
+You: "What databases do I have access to?"
+
+Claude uses: list_databases
+Arguments: { include_metadata: true }
+
+Response:
+- production_db (Active)
+  Permissions: SELECT
+  Tables: 45
+  Size: 2.3 GB
+
+- staging_db
+  Permissions: SELECT, INSERT, UPDATE
+  Tables: 42
+  Size: 856 MB
+```
+
+**What happens:**
+1. Lists all databases from your active MySQL connection
+2. Shows which database is currently active
+3. Displays configured permissions for each
+4. Optionally includes metadata (table count, size)
+
+### 3. `switch_database` - Change Active Database
+
+Claude can switch between databases within your MySQL connection.
+
+**Example conversation:**
+```
+You: "Let's look at the staging database instead"
+
+Claude uses: switch_database
+Arguments: { database: "staging_db" }
+
+Response: ✓ Switched from production_db to staging_db
+Permissions: SELECT, INSERT, UPDATE, DELETE
+You can now query data and make modifications in staging_db
+```
+
+**What happens:**
+1. Validates database exists in your connection
+2. Switches active database for all future queries
+3. Returns new database's permissions
+4. Persists the change (survives restarts)
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────┐
+│  You: "Show me users who signed up this month"     │
+└──────────────────┬──────────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────┐
+│  Claude Desktop / Claude Code                       │
+│  - Understands your request                         │
+│  - Decides to use mysql_query tool                  │
+│  - Generates appropriate SQL                        │
+└──────────────────┬──────────────────────────────────┘
+                   │ MCP Protocol
+┌──────────────────▼──────────────────────────────────┐
+│  MySQL MCP Server                                    │
+│  1. Validates API token                             │
+│  2. Checks database permissions                     │
+│  3. Parses SQL to verify allowed operations         │
+│  4. Executes query in transaction                   │
+│  5. Returns results                                 │
+└──────────────────┬──────────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────┐
+│  Your MySQL Database                                │
+│  - Query executed safely                            │
+│  - Results returned                                 │
+└─────────────────────────────────────────────────────┘
+```
+
+## Permission System
+
+Every database has granular permissions. Configure what Claude can do:
+
+| Permission | What It Allows | Example Use Case |
+|------------|----------------|------------------|
+| **SELECT** | Read data from tables | "Show me all orders from last week" |
+| **INSERT** | Add new records | "Create a new user account" |
+| **UPDATE** | Modify existing records | "Update the user's email address" |
+| **DELETE** | Remove records | "Delete spam comments" |
+| **CREATE** | Create tables/indexes | "Create a new analytics table" |
+| **ALTER** | Modify table structure | "Add a new column to users table" |
+| **DROP** | Delete tables/databases | "Drop the temporary test table" |
+| **TRUNCATE** | Empty tables | "Clear all data from logs table" |
+
+**Best Practice:** Start with **SELECT only** for production databases. Grant additional permissions as needed.
+
+## Use Cases
+
+### Data Analysis
+```
+You: "What's our monthly revenue trend for the past 6 months?"
+Claude: Uses mysql_query to aggregate sales data and presents a summary
+```
+
+### Database Exploration
+```
+You: "What tables contain customer information?"
+Claude: Queries information_schema and explains table relationships
+```
+
+### Schema Understanding
+```
+You: "Explain the users table structure"
+Claude: Uses DESCRIBE query and explains each column's purpose
+```
+
+### Data Migration
+```
+You: "Copy all users created this year to the archive database"
+Claude: Switches databases, queries source, and inserts to destination
+```
+
+### Debugging
+```
+You: "Why are we getting duplicate orders?"
+Claude: Queries orders table, analyzes the data, and identifies the issue
+```
+
+## Configuration Options
+
+### Transport Modes
+
+**stdio Mode** (Default for Claude Desktop):
+```json
+{
+  "TRANSPORT": "stdio",
+  "AUTH_TOKEN": "your-api-key"
+}
+```
+- MCP communication via stdin/stdout
+- Automatic lifecycle management by Claude
+- Web UI runs on separate HTTP port (9274)
+
+**HTTP Mode** (For Claude Code and remote access):
+```bash
+# Start server in HTTP mode
+TRANSPORT=http mysql-mcp-webui
+
+# Claude Code connects to:
+# http://localhost:9274/mcp
+```
+- MCP communication via HTTP endpoint
+- Supports multiple concurrent sessions
+- Includes REST API and Web UI
 
 ### Environment Variables
 
-#### Required Variables
-- `TRANSPORT` - Transport mode: `stdio` or `http` (default: http)
-- `HTTP_PORT` - HTTP server port (default: 3000)
-- `NODE_ENV` - Environment: `development` or `production`
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TRANSPORT` | `http` | Transport mode: `stdio` or `http` |
+| `HTTP_PORT` | `9274` | Web UI and API port |
+| `AUTH_TOKEN` | - | API key (required for stdio mode) |
+| `NODE_ENV` | `development` | Environment: `development` or `production` |
 
-#### Authentication Variables
-- `JWT_SECRET` - Secret for JWT token signing (32+ characters, optional in HTTP development mode, not used in stdio mode)
-- `JWT_EXPIRES_IN` - JWT token expiration time (default: 7d)
-- `AUTH_TOKEN` - API key for authentication (required for stdio mode only)
+## Web UI Features
 
-#### Optional Variables
-- `ENABLE_HTTPS` - Enable HTTPS (default: false)
-- `SSL_CERT_PATH` - Path to SSL certificate file
-- `SSL_KEY_PATH` - Path to SSL private key file
-- `RATE_LIMIT_ENABLED` - Enable rate limiting (default: true)
-- `RATE_LIMIT_WINDOW_MS` - Rate limit window in milliseconds (default: 900000 / 15 minutes)
-- `RATE_LIMIT_MAX_REQUESTS` - Max requests per window (default: 100)
+Access the management interface at **http://localhost:9274**
 
-**Note**: In development HTTP mode, a default JWT secret is used if not provided. For production HTTP mode, `JWT_SECRET` must be explicitly set. Stdio mode (MCP via Claude Desktop) doesn't require JWT_SECRET as it uses API key authentication.
+- **Dashboard** - Overview of connections and activity
+- **Connections** - Manage MySQL server connections
+- **Databases** - Configure permissions and enable/disable databases
+- **Browser** - Explore tables, view data, check indexes
+- **Query Editor** - Test SQL queries with syntax highlighting
+- **API Keys** - Manage authentication tokens
+- **Users** - Multi-user access control
+- **Logs** - Audit trail of all MCP tool calls
+- **Dark Mode** - System preference detection
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration examples and production setup.
+## Security
 
-## Security Features
+### Built-in Protections
 
-- **Dual Authentication**: JWT-based authentication for WebUI users + API key authentication for MCP/programmatic access
-- **Password Security**: bcrypt hashing (10 salt rounds) for user passwords with forced password change on first login
-- **AES-256-GCM Encryption**: All MySQL database passwords are encrypted at rest
-- **JWT Tokens**: httpOnly cookies with configurable expiration for secure session management
-- **Rate Limiting**: Configurable per-endpoint rate limiting to prevent abuse
-- **HTTPS/TLS Support**: Production-ready SSL/TLS encryption for all connections
-- **Permission Validation**: Query permissions are checked before execution
-- **Transaction Support**: All queries run in transactions with automatic rollback on error
-- **SQL Injection Prevention**: Uses parameterized queries via mysql2
-- **Constant-Time Comparison**: Prevents timing attacks on token verification
-- **User Management**: Multi-user support with secure CRUD operations
+✅ **Permission Validation** - Every query checked against database permissions
+✅ **SQL Parsing** - Validates query type before execution
+✅ **Transaction Safety** - Auto-rollback on errors
+✅ **Password Encryption** - AES-256-GCM for MySQL passwords
+✅ **API Key Authentication** - Token-based access control
+✅ **Request Logging** - Complete audit trail
+✅ **Rate Limiting** - Prevent abuse
+✅ **Input Sanitization** - SQL injection prevention
 
-## Architecture
+### Best Practices
 
-```
-┌─────────────────────────────────────────────┐
-│    MCP Clients (Claude Desktop/Code)        │
-│    Multiple instances with isolated state    │
-└────────────────┬────────────────────────────┘
-                 │ MCP Protocol (stdio/HTTP)
-┌────────────────▼────────────────────────────┐
-│         MySQL MCP WebUI Server               │
-│                                               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │   MCP    │  │ REST API │  │ Web UI   │  │
-│  │  Tools   │  │          │  │ (React)  │  │
-│  └────┬─────┘  └────┬─────┘  └──────────┘  │
-│       │             │                        │
-│  ┌────▼─────────────▼──────────────┐        │
-│  │    Session Manager (HTTP mode)  │        │
-│  │    Connection Manager            │        │
-│  │    Query Executor                │        │
-│  │    Permission Validator          │        │
-│  │    Database Manager (SQLite)     │        │
-│  └────────────────┬─────────────────┘        │
-│                   │                           │
-│  ┌────────────────▼─────────────────┐        │
-│  │  SQLite DB (WAL mode + retries)  │        │
-│  │  - Users (hashed passwords)       │        │
-│  │  - API Keys                       │        │
-│  │  - Connections (encrypted)        │        │
-│  │  - Databases & Permissions        │        │
-│  │  - Request Logs                   │        │
-│  └───────────────────────────────────┘        │
-└───────────────────┼──────────────────────────┘
-                    │ MySQL Protocol
-          ┌─────────▼─────────┐
-          │  MySQL Server(s)  │
-          └───────────────────┘
-```
+1. **Use Read-Only Permissions** for production databases initially
+2. **Create Dedicated MySQL Users** with limited privileges
+3. **Rotate API Keys Regularly** via the Web UI
+4. **Review Audit Logs** to monitor Claude's database access
+5. **Enable Only Required Databases** - disable others
+6. **Use HTTPS in Production** for remote access
 
-## Technology Stack
+## Multi-Instance Support
 
-### Backend
-- Node.js 20+
-- TypeScript 5.x
-- @modelcontextprotocol/sdk
-- Express 5.x
-- mysql2 with Promise support
-- node-sql-parser
-- Zod for validation
-- jsonwebtoken (JWT authentication)
-- bcrypt (password hashing)
-- cookie-parser (session management)
+Run multiple Claude Desktop instances or sessions safely:
 
-### Frontend
-- React 18
-- TypeScript 5.x
-- Vite 6.x
-- TailwindCSS
-- @tanstack/react-query
-- Monaco Editor
+- **stdio mode**: Each Claude Desktop instance gets its own process
+- **HTTP mode**: Multiple sessions with isolated state
+- **Concurrent access**: Safe SQLite writes with WAL mode
+- **Session cleanup**: Automatic cleanup of inactive sessions (30 min)
 
-## Development
+Set a default connection in Web UI so all new instances start with the same setup.
 
-### Project Structure
+## Troubleshooting
 
-```
-mysql-mcp-webui/
-├── server/           # Backend server
-│   ├── src/
-│   │   ├── api/      # REST API routes
-│   │   ├── config/   # Config management
-│   │   ├── db/       # Database layer
-│   │   ├── mcp/      # MCP server
-│   │   └── types/    # TypeScript types
-│   └── dist/         # Compiled output
-├── client/           # React frontend
-│   └── src/
-└── data/             # Runtime data
-    └── mysql-mcp.db  # SQLite configuration database
-```
+### Claude can't connect to MCP server
 
-### Building
+1. Check Claude Desktop config file syntax (valid JSON)
+2. Verify API key is correct: `mysql-mcp-webui --generate-token`
+3. Restart Claude Desktop completely
+4. Check Web UI is accessible at http://localhost:9274
+
+### Permission denied errors
+
+1. Open Web UI → Databases
+2. Verify database has required permissions enabled
+3. Check database is enabled (not disabled)
+4. Ensure MySQL user has actual database permissions
+
+### Connection errors
+
+1. Test connection in Web UI (Connections page → Test button)
+2. Verify MySQL server is running and accessible
+3. Check firewall rules
+4. Confirm MySQL credentials are correct
+
+### Port already in use
 
 ```bash
-# Build server
-npm run build:server
-
-# Build client (when ready)
-npm run build:client
-
-# Build both
-npm run build
+# Change the default port
+HTTP_PORT=3001 mysql-mcp-webui
 ```
 
-## Roadmap
+## Advanced Usage
 
-### Current Features ✅
-- Full MCP server implementation with three powerful tools
-- Complete REST API for connection and database management
-- React-based web UI for configuration management
-- **Dual authentication system (JWT for WebUI + API keys for MCP)**
-- **Multi-user support with secure password management**
-- Request/response logging with user tracking
-- Dual transport support (stdio/http)
-- **Multi-instance support with isolated state (stdio and HTTP modes)**
-- **Production-ready Docker deployment**
-- **HTTPS/TLS support with Let's Encrypt integration**
-- **Configurable rate limiting**
-- Encrypted password storage
-- Per-database permission management
-- **Safe concurrent SQLite writes with retry logic**
-- **Session-based isolation for HTTP mode**
+### Custom Installation Path
 
-### Planned Features
-- Role-based access control (RBAC)
-- Query history and favorites
-- Advanced permissions (table/column level)
-- Query result export (CSV, JSON, etc.)
-- Database schema explorer
-- Monitoring and metrics dashboard
-- Query performance analysis
-- Backup and restore management
+```json
+{
+  "mcpServers": {
+    "mysql": {
+      "command": "node",
+      "args": ["/path/to/mysql-mcp-webui/server/dist/index.js"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "AUTH_TOKEN": "your-key"
+      }
+    }
+  }
+}
+```
 
-## Contributing
+### Production Deployment
 
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for:
+- Docker deployment
+- HTTPS/TLS configuration
+- Rate limiting setup
+- Multi-instance architecture
+- Security hardening
 
-For detailed architecture information, see [CLAUDE.md](CLAUDE.md).
+### Development
+
+See [README_DEVELOPMENT.md](README_DEVELOPMENT.md) for:
+- Architecture details
+- API documentation
+- Development setup
+- Contributing guidelines
+
+## CLI Commands
+
+```bash
+# Show help
+mysql-mcp-webui --help
+
+# Generate new API token
+mysql-mcp-webui --generate-token
+
+# Show version
+mysql-mcp-webui --version
+```
+
+## What's New in v0.0.7
+
+- 📖 **Enhanced Documentation** - New user-focused README with MCP workflow examples
+- 🔄 **Documentation Reorganization** - Technical details moved to README_DEVELOPMENT.md
+- 💡 **Better Onboarding** - Clear step-by-step setup guide with example conversations
+- 📚 **Use Case Examples** - Real-world scenarios showing how Claude uses MCP tools
+- 🎯 **Troubleshooting Guide** - Common issues and solutions for quick problem resolution
+
+## Resources
+
+- **Documentation**: [GitHub Repository](https://github.com/yashagldit/mysql-mcp-webui)
+- **Issues & Support**: [GitHub Issues](https://github.com/yashagldit/mysql-mcp-webui/issues)
+- **Model Context Protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io/)
+- **Development Guide**: [README_DEVELOPMENT.md](README_DEVELOPMENT.md)
+- **Deployment Guide**: [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- Report bugs and request features via [GitHub Issues](https://github.com/yashagldit/mysql-mcp-webui/issues)
-- For questions and discussions, use [GitHub Discussions](https://github.com/yashagldit/mysql-mcp-webui/discussions)
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- Created and maintained by [Yash Agarwal](https://github.com/yashagldit)
 - Built with [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
-- Powered by [Claude AI](https://claude.ai/)
+- Powers [Claude Desktop](https://claude.ai/download) and [Claude Code](https://claude.com/code)
+- Created by [Yash Agarwal](https://github.com/yashagldit)
+
+---
+
+**Ready to give Claude access to your databases?** Install now and start exploring your data with natural language! 🚀
