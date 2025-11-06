@@ -34,6 +34,7 @@ export interface UpdateConnectionRequest {
 export interface Database {
   name: string;
   isActive: boolean;
+  isEnabled: boolean;
   permissions: DatabasePermissions;
   tableCount?: number;
   size?: string;
@@ -194,6 +195,7 @@ export interface Settings {
   transport: 'stdio' | 'http';
   httpPort: number;
   nodeVersion: string;
+  mcpEnabled: boolean;
 }
 
 export interface ActiveState {

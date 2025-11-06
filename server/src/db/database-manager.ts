@@ -587,6 +587,8 @@ export class DatabaseManager {
           acc[db.name] = {
             name: db.name,
             permissions: this.dbRowToPermissions(db),
+            // Treat NULL as enabled for backward compatibility
+            isEnabled: db.is_enabled === null ? true : Boolean(db.is_enabled),
           };
           return acc;
         }, {} as Record<string, DatabaseConfig>),
@@ -623,6 +625,8 @@ export class DatabaseManager {
         acc[db.name] = {
           name: db.name,
           permissions: this.dbRowToPermissions(db),
+          // Treat NULL as enabled for backward compatibility
+          isEnabled: db.is_enabled === null ? true : Boolean(db.is_enabled),
         };
         return acc;
       }, {} as Record<string, DatabaseConfig>),
@@ -765,10 +769,10 @@ export class DatabaseManager {
         this.executeWithRetry(() => {
           const stmt = this.db.prepare(`
             INSERT INTO databases (
-              id, connection_id, name, is_active,
+              id, connection_id, name, is_active, is_enabled,
               select_perm, insert_perm, update_perm, delete_perm,
               create_perm, alter_perm, drop_perm, truncate_perm
-            ) VALUES (?, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0, 0)
+            ) VALUES (?, ?, ?, ?, 1, 1, 0, 0, 0, 0, 0, 0, 0)
           `);
 
           stmt.run(id, connectionId, dbName, is_active);
@@ -854,6 +858,37 @@ export class DatabaseManager {
   }
 
   /**
+   * Enable a database (make it accessible via MCP)
+   */
+  enableDatabase(connectionId: string, databaseName: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE databases
+        SET is_enabled = 1
+        WHERE connection_id = ? AND name = ?
+      `);
+
+      stmt.run(connectionId, databaseName);
+    });
+  }
+
+  /**
+   * Disable a database (hide it from MCP)
+   * Also deactivates the database if it's currently active
+   */
+  disableDatabase(connectionId: string, databaseName: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE databases
+        SET is_enabled = 0, is_active = 0
+        WHERE connection_id = ? AND name = ?
+      `);
+
+      stmt.run(connectionId, databaseName);
+    });
+  }
+
+  /**
    * Get active database for a connection
    */
   getActiveDatabase(connectionId: string): string | null {
@@ -882,6 +917,8 @@ export class DatabaseManager {
     return {
       name: row.name,
       permissions: this.dbRowToPermissions(row),
+      // Treat NULL as enabled for backward compatibility
+      isEnabled: row.is_enabled === null ? true : Boolean(row.is_enabled),
     };
   }
 
@@ -1089,6 +1126,21 @@ export class DatabaseManager {
       const stmt = this.db.prepare('DELETE FROM settings WHERE key = ?');
       stmt.run(key);
     });
+  }
+
+  /**
+   * Get MCP enabled state
+   */
+  getMcpEnabled(): boolean {
+    const value = this.getSetting('mcp_enabled');
+    return value === 'true';
+  }
+
+  /**
+   * Set MCP enabled state
+   */
+  setMcpEnabled(enabled: boolean): void {
+    this.setSetting('mcp_enabled', enabled ? 'true' : 'false');
   }
 }
 

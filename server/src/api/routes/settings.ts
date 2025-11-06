@@ -14,11 +14,13 @@ router.get('/settings', async (req: Request, res: Response) => {
   try {
     const transport = dbManager.getSetting('transport') || 'http';
     const httpPort = dbManager.getSetting('httpPort') || '3000';
+    const mcpEnabled = dbManager.getMcpEnabled();
 
     const settings = {
       transport,
       httpPort: parseInt(httpPort),
       nodeVersion: process.version,
+      mcpEnabled,
     };
 
     res.json({
@@ -27,6 +29,35 @@ router.get('/settings', async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * PUT /api/settings/mcp
+ * Toggle MCP service enabled state
+ */
+router.put('/settings/mcp', async (req: Request, res: Response) => {
+  try {
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        error: 'enabled field must be a boolean',
+      });
+    }
+
+    dbManager.setMcpEnabled(enabled);
+
+    return res.json({
+      success: true,
+      data: { mcpEnabled: enabled },
+    });
+  } catch (error) {
+    return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     });

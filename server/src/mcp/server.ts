@@ -124,6 +124,20 @@ export class McpServer {
           return;
         }
 
+        // Check if MCP is enabled
+        const dbManager = getDatabaseManager();
+        if (!dbManager.getMcpEnabled()) {
+          res.status(503).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32000,
+              message: 'MCP service is currently disabled',
+            },
+            id: null,
+          });
+          return;
+        }
+
         // Set API key ID for logging
         if (authResult.apiKeyId) {
           this.handlers.setApiKeyId(authResult.apiKeyId);

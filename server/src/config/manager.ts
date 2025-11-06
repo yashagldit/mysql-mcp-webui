@@ -143,6 +143,7 @@ export class ConfigManager {
       databases[dbName] = {
         name: dbName,
         permissions: { ...defaultPermissions },
+        isEnabled: true,
       };
     }
 
@@ -276,6 +277,7 @@ export class ConfigManager {
         connection.databases[dbName] = {
           name: dbName,
           permissions: { ...defaultPermissions },
+          isEnabled: true,
         };
         added.push(dbName);
       }

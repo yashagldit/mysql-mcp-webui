@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS databases (
   connection_id TEXT NOT NULL,
   name TEXT NOT NULL,
   is_active INTEGER DEFAULT 0,
+  is_enabled INTEGER DEFAULT 1,
   select_perm INTEGER DEFAULT 1,
   insert_perm INTEGER DEFAULT 0,
   update_perm INTEGER DEFAULT 0,
@@ -92,10 +93,45 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_is_active ON api_keys(is_active);
 CREATE INDEX IF NOT EXISTS idx_connections_is_active ON connections(is_active);
 CREATE INDEX IF NOT EXISTS idx_databases_connection_id ON databases(connection_id);
 CREATE INDEX IF NOT EXISTS idx_databases_is_active ON databases(is_active);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_databases_unique_name ON databases(connection_id, name);
 CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_user_id ON request_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
+-- Note: idx_databases_is_enabled is created by migration after adding is_enabled column
 `;
+
+/**
+ * Run database migrations
+ */
+function runMigrations(db: Database.Database): void {
+  // Check if is_enabled column exists in databases table
+  const tableInfo = db.pragma('table_info(databases)') as Array<{ name: string }>;
+  const hasIsEnabled = tableInfo.some((col) => col.name === 'is_enabled');
+
+  if (!hasIsEnabled) {
+    // Add is_enabled column to existing databases table
+    db.exec('ALTER TABLE databases ADD COLUMN is_enabled INTEGER DEFAULT 1');
+    // Create index for the new column
+    db.exec('CREATE INDEX IF NOT EXISTS idx_databases_is_enabled ON databases(is_enabled)');
+    console.log('Migration: Added is_enabled column to databases table');
+  }
+
+  // Always ensure existing databases with NULL are set to enabled (backward compatibility)
+  // This handles cases where the column exists but rows have NULL values from the ALTER TABLE
+  // Note: We only update NULL, not 0, because 0 means the user intentionally disabled it
+  const updateStmt = db.prepare('UPDATE databases SET is_enabled = 1 WHERE is_enabled IS NULL');
+  const result = updateStmt.run();
+  if (result.changes > 0) {
+    console.log(`Migration: Enabled ${result.changes} existing database(s) that had NULL is_enabled`);
+  }
+
+  // Create unique index to prevent duplicate databases
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_databases_unique_name ON databases(connection_id, name)');
+
+  // Initialize mcp_enabled setting if not exists
+  const stmt = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  stmt.run('mcp_enabled', 'true');
+}
 
 /**
  * Initialize database with schema
@@ -121,6 +157,9 @@ export function initDatabase(dbPath: string = DEFAULT_DB_PATH): Database.Databas
 
   // Execute schema
   db.exec(SCHEMA);
+
+  // Run migrations
+  runMigrations(db);
 
   return db;
 }

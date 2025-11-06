@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Database, Activity, Sun, Moon, Monitor } from 'lucide-react';
-import { Badge, DatabaseSwitcher } from '../Common';
+import { Badge, DatabaseSwitcher, Toggle } from '../Common';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useSettings, useToggleMcp } from '../../hooks/useActiveState';
 
 interface HeaderProps {
   activeConnection?: string;
@@ -14,6 +15,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeDatabase,
 }) => {
   const { theme, setTheme } = useTheme();
+  const { data: settings } = useSettings();
+  const toggleMcp = useToggleMcp();
 
   const cycleTheme = () => {
     const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
@@ -31,6 +34,10 @@ export const Header: React.FC<HeaderProps> = ({
       case 'system':
         return <Monitor className="w-5 h-5" />;
     }
+  };
+
+  const handleMcpToggle = (enabled: boolean) => {
+    toggleMcp.mutate(enabled);
   };
 
   return (
@@ -60,6 +67,22 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex items-center space-x-4">
+          {/* MCP Status and Toggle */}
+          <div className="flex items-center space-x-3 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">MCP</span>
+              <Badge variant={settings?.mcpEnabled ? 'success' : 'default'}>
+                {settings?.mcpEnabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+            </div>
+            <Toggle
+              checked={settings?.mcpEnabled ?? true}
+              onChange={handleMcpToggle}
+              size="sm"
+              disabled={toggleMcp.isPending}
+            />
+          </div>
+
           <button
             onClick={cycleTheme}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 text-gray-600 dark:text-gray-300"

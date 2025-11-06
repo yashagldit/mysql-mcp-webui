@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 
 export const useActiveState = () => {
@@ -13,6 +13,17 @@ export const useSettings = () => {
   return useQuery({
     queryKey: ['settings'],
     queryFn: () => apiClient.getSettings(),
+  });
+};
+
+export const useToggleMcp = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (enabled: boolean) => apiClient.toggleMcp(enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
   });
 };
 

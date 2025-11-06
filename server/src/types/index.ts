@@ -44,11 +44,13 @@ export const defaultPermissions: Permissions = {
 export interface DatabaseConfig {
   name: string;
   permissions: Permissions;
+  isEnabled: boolean;
 }
 
 export const DatabaseConfigSchema = z.object({
   name: z.string(),
   permissions: PermissionsSchema,
+  isEnabled: z.boolean(),
 });
 
 // ============================================================================
@@ -203,6 +205,7 @@ export interface DiscoverDatabasesResult {
 export interface DatabaseListItem {
   name: string;
   isActive: boolean;
+  isEnabled: boolean;
   permissions: Permissions;
   tableCount?: number;
   size?: string;

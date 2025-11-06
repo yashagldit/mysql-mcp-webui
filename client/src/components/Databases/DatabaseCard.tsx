@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Database as DatabaseIcon, Check, Shield, Table2 } from 'lucide-react';
+import { Database as DatabaseIcon, Check, Shield, Table2, Eye, EyeOff } from 'lucide-react';
 import { Card, Badge, Button } from '../Common';
 import { PermissionsModal } from './PermissionsModal';
-import { useActivateDatabase } from '../../hooks/useDatabases';
+import { useActivateDatabase, useEnableDatabase, useDisableDatabase } from '../../hooks/useDatabases';
 import type { Database } from '../../types';
 import { getPermissionCount } from '../../lib/utils';
 
@@ -15,6 +15,8 @@ interface DatabaseCardProps {
 export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connectionId }) => {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const activateMutation = useActivateDatabase();
+  const enableMutation = useEnableDatabase();
+  const disableMutation = useDisableDatabase();
   const navigate = useNavigate();
 
   const permissions = database.permissions;
@@ -29,6 +31,24 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
       });
     } catch (error) {
       console.error('Failed to activate database:', error);
+    }
+  };
+
+  const handleToggleEnabled = async () => {
+    try {
+      if (database.isEnabled) {
+        await disableMutation.mutateAsync({
+          connectionId,
+          dbName: database.name,
+        });
+      } else {
+        await enableMutation.mutateAsync({
+          connectionId,
+          dbName: database.name,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle database enabled state:', error);
     }
   };
 
@@ -50,14 +70,19 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
 
   return (
     <>
-      <Card hoverable className="relative">
-        {database.isActive && (
-          <div className="absolute top-4 right-4">
+      <Card hoverable className={`relative ${!database.isEnabled ? 'opacity-60' : ''}`}>
+        <div className="absolute top-4 right-4 flex gap-2">
+          {database.isActive && (
             <Badge variant="success" size="sm">
               Active
             </Badge>
-          </div>
-        )}
+          )}
+          {!database.isEnabled && (
+            <Badge variant="danger" size="sm">
+              Disabled
+            </Badge>
+          )}
+        </div>
 
         <div className="flex items-start space-x-3 mb-4">
           <div className="p-2 bg-green-50 rounded-lg">
@@ -124,6 +149,7 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
               onClick={handleActivate}
               loading={activateMutation.isPending}
               fullWidth
+              disabled={!database.isEnabled}
             >
               <Check className="w-4 h-4 mr-1" />
               Activate
@@ -136,6 +162,7 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
               onClick={handleBrowse}
               loading={activateMutation.isPending}
               fullWidth
+              disabled={!database.isEnabled}
             >
               <Table2 className="w-4 h-4 mr-1" />
               Browse
@@ -150,6 +177,25 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
               Permissions
             </Button>
           </div>
+          <Button
+            size="sm"
+            variant={database.isEnabled ? 'danger' : 'primary'}
+            onClick={handleToggleEnabled}
+            loading={enableMutation.isPending || disableMutation.isPending}
+            fullWidth
+          >
+            {database.isEnabled ? (
+              <>
+                <EyeOff className="w-4 h-4 mr-1" />
+                Disable for MCP
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4 mr-1" />
+                Enable for MCP
+              </>
+            )}
+          </Button>
         </div>
       </Card>
 

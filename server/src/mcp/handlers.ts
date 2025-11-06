@@ -254,7 +254,10 @@ export class McpHandlers {
       // Get active database (dual-mode: stdio or HTTP session)
       const activeDatabase = this.getActiveDatabase(connectionId);
 
-      const databaseNames = Object.keys(connection.databases);
+      // Filter out disabled databases (only show enabled ones via MCP)
+      const databaseNames = Object.keys(connection.databases).filter(
+        (dbName) => connection.databases[dbName].isEnabled
+      );
       const databases = [];
 
       if (include_metadata) {
@@ -366,6 +369,19 @@ export class McpHandlers {
             {
               type: 'text',
               text: `Error: Database '${database}' not found in connection '${connection.name}'`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Check if database is enabled
+      if (!connection.databases[database].isEnabled) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Database '${database}' is disabled and not accessible via MCP`,
             },
           ],
           isError: true,

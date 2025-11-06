@@ -42,3 +42,29 @@ export const useUpdatePermissions = () => {
     },
   });
 };
+
+export const useEnableDatabase = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ connectionId, dbName }: { connectionId: string; dbName: string }) =>
+      apiClient.enableDatabase(connectionId, dbName),
+    onSuccess: (_, { connectionId }) => {
+      queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['activeState'] });
+    },
+  });
+};
+
+export const useDisableDatabase = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ connectionId, dbName }: { connectionId: string; dbName: string }) =>
+      apiClient.disableDatabase(connectionId, dbName),
+    onSuccess: (_, { connectionId }) => {
+      queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['activeState'] });
+    },
+  });
+};

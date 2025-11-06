@@ -159,6 +159,16 @@ class ApiClient {
     return data.data;
   }
 
+  async enableDatabase(connectionId: string, dbName: string): Promise<{ message: string }> {
+    const { data } = await this.client.put<ApiResponse<{ message: string }>>(`/connections/${connectionId}/databases/${dbName}/enable`);
+    return data.data;
+  }
+
+  async disableDatabase(connectionId: string, dbName: string): Promise<{ message: string }> {
+    const { data } = await this.client.put<ApiResponse<{ message: string }>>(`/connections/${connectionId}/databases/${dbName}/disable`);
+    return data.data;
+  }
+
   // Query endpoint
   async executeQuery(query: QueryRequest): Promise<QueryResult> {
     const { data } = await this.client.post<ApiResponse<QueryResult>>('/query', query);
@@ -168,6 +178,11 @@ class ApiClient {
   // Settings endpoints
   async getSettings(): Promise<Settings> {
     const { data } = await this.client.get<ApiResponse<Settings>>('/settings');
+    return data.data;
+  }
+
+  async toggleMcp(enabled: boolean): Promise<{ mcpEnabled: boolean }> {
+    const { data } = await this.client.put<ApiResponse<{ mcpEnabled: boolean }>>('/settings/mcp', { enabled });
     return data.data;
   }
 

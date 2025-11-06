@@ -1,15 +1,20 @@
 import React from 'react';
-import { Server, Key, Code } from 'lucide-react';
-import { Card, Badge, Alert } from '../Common';
+import { Server, Key, Code, Zap } from 'lucide-react';
+import { Card, Badge, Alert, Toggle } from '../Common';
 import { McpConfigSnippet } from './McpConfigSnippet';
-import { useSettings } from '../../hooks/useActiveState';
+import { useSettings, useToggleMcp } from '../../hooks/useActiveState';
 import { useApiKeys } from '../../hooks/useApiKeys';
 
 export const Settings: React.FC = () => {
   const { data: settings, isLoading } = useSettings();
   const { data: apiKeys } = useApiKeys();
+  const toggleMcp = useToggleMcp();
 
   const activeKeys = apiKeys?.filter((key) => key.isActive) || [];
+
+  const handleMcpToggle = (enabled: boolean) => {
+    toggleMcp.mutate(enabled);
+  };
 
   if (isLoading) {
     return (
@@ -57,6 +62,46 @@ export const Settings: React.FC = () => {
             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Node Version</label>
             <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{settings?.nodeVersion || 'N/A'}</p>
           </div>
+        </div>
+      </Card>
+
+      {/* MCP Service Control */}
+      <Card>
+        <div className="flex items-start space-x-3 mb-4">
+          <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+            <Zap className="w-5 h-5 text-yellow-600 dark:text-yellow-500" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">MCP Service Control</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Enable or disable the Model Context Protocol service
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+            <div className="flex items-center space-x-3">
+              <Badge variant={settings?.mcpEnabled ? 'success' : 'default'}>
+                {settings?.mcpEnabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                MCP tools are currently {settings?.mcpEnabled ? 'enabled' : 'disabled'}
+              </span>
+            </div>
+            <Toggle
+              checked={settings?.mcpEnabled ?? true}
+              onChange={handleMcpToggle}
+              disabled={toggleMcp.isPending}
+            />
+          </div>
+
+          <Alert type="info">
+            <p className="text-sm">
+              <strong>Note:</strong> This feature affects HTTP mode only. When disabled, MCP tool calls will return error messages.
+              Changes take effect immediately without requiring a server restart.
+            </p>
+          </Alert>
         </div>
       </Card>
 
