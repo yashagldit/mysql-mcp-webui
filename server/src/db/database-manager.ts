@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { getDatabase } from './schema.js';
-import { generateToken, encryptPassword, decryptPassword } from '../config/crypto.js';
+import { generateToken, encryptPassword, decryptPassword, constantTimeCompare } from '../config/crypto.js';
 import { hashPassword } from '../config/auth-utils.js';
 import type {
   ConnectionConfig,
@@ -259,24 +259,37 @@ export class DatabaseManager {
 
   /**
    * Verify API key and return key info
+   * Uses constant-time comparison to prevent timing attacks
    */
   verifyApiKey(key: string): ApiKey | null {
+    // Security: Use constant-time comparison to prevent timing attacks
+    // Get all active API keys and compare each one using crypto.timingSafeEqual
     const stmt = this.db.prepare(`
       SELECT id, name, key, created_at, last_used_at, is_active
       FROM api_keys
-      WHERE key = ? AND is_active = 1
+      WHERE is_active = 1
     `);
 
-    const row = stmt.get(key) as any;
-    if (!row) return null;
+    const rows = stmt.all() as any[];
+    let matchedKey: ApiKey | null = null;
 
-    // Update last_used_at
-    this.updateApiKeyLastUsed(row.id);
+    // Compare all keys in constant time to prevent timing attacks
+    for (const row of rows) {
+      if (constantTimeCompare(row.key, key)) {
+        matchedKey = {
+          ...row,
+          is_active: Boolean(row.is_active),
+        };
+        // Don't break early - continue to maintain constant time
+      }
+    }
 
-    return {
-      ...row,
-      is_active: Boolean(row.is_active),
-    };
+    // Update last_used_at if key matched
+    if (matchedKey) {
+      this.updateApiKeyLastUsed(matchedKey.id);
+    }
+
+    return matchedKey;
   }
 
   /**

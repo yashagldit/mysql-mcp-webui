@@ -5,6 +5,41 @@ import { z } from 'zod';
 const router = Router();
 const queryExecutor = getQueryExecutor();
 
+// Security constants for input validation
+const MAX_PAGE_SIZE = 1000;
+const MAX_OFFSET = 1000000;
+
+/**
+ * Validate and sanitize table name against actual database tables
+ * Prevents SQL injection by ensuring the table exists
+ */
+async function validateTableName(tableName: string): Promise<void> {
+  // First, check for basic validity - only allow alphanumeric, underscore, and dollar sign
+  // (MySQL allows these in identifiers)
+  if (!/^[a-zA-Z0-9_$]+$/.test(tableName)) {
+    throw new Error('Invalid table name format. Only alphanumeric characters, underscore, and dollar sign are allowed.');
+  }
+
+  // Verify table exists in database by querying SHOW TABLES
+  const result = await queryExecutor.executeQuery('SHOW TABLES');
+  const validTables = result.rows.map(row => {
+    const values = Object.values(row);
+    return values[0] as string;
+  });
+
+  if (!validTables.includes(tableName)) {
+    throw new Error('Table not found in database');
+  }
+}
+
+/**
+ * Escape identifier for MySQL queries
+ * Wraps identifier in backticks and escapes any backticks within
+ */
+function escapeIdentifier(identifier: string): string {
+  return `\`${identifier.replace(/`/g, '``')}\``;
+}
+
 /**
  * GET /api/browse/tables
  * List all tables in the active database with row counts
@@ -34,9 +69,14 @@ router.get('/tables', async (req: Request, res: Response) => {
     let tables: Array<{ name: string; rowCount: number; isView: boolean }>;
 
     if (baseTables.length > 0) {
-      const countQueries = baseTables.map(t =>
-        `SELECT '${t.name.replace(/'/g, "''")}' as table_name, COUNT(*) as row_count FROM \`${t.name}\``
-      );
+      // Properly escape table names to prevent SQL injection
+      const countQueries = baseTables.map(t => {
+        // Escape single quotes for the literal string
+        const escapedNameLiteral = t.name.replace(/'/g, "''");
+        // Escape identifier (backticks)
+        const escapedTableName = escapeIdentifier(t.name);
+        return `SELECT '${escapedNameLiteral}' as table_name, COUNT(*) as row_count FROM ${escapedTableName}`;
+      });
 
       const unionQuery = countQueries.join(' UNION ALL ');
       const countResult = await queryExecutor.executeQuery(unionQuery);
@@ -91,8 +131,12 @@ router.get('/tables/:tableName/structure', async (req: Request, res: Response) =
   try {
     const { tableName } = req.params;
 
-    // Get column information
-    const result = await queryExecutor.executeQuery(`DESCRIBE \`${tableName}\``);
+    // Validate table name to prevent SQL injection
+    await validateTableName(tableName);
+
+    // Get column information - using validated and escaped identifier
+    const escapedTable = escapeIdentifier(tableName);
+    const result = await queryExecutor.executeQuery(`DESCRIBE ${escapedTable}`);
 
     res.json({
       success: true,
@@ -116,20 +160,43 @@ router.get('/tables/:tableName/structure', async (req: Request, res: Response) =
 router.get('/tables/:tableName/data', async (req: Request, res: Response) => {
   try {
     const { tableName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 50;
+
+    // Validate table name to prevent SQL injection
+    await validateTableName(tableName);
+
+    // Validate and sanitize pagination parameters
+    let page = parseInt(req.query.page as string) || 1;
+    let pageSize = parseInt(req.query.pageSize as string) || 50;
+
+    // Security: Enforce bounds on pagination parameters
+    if (page < 1) page = 1;
+    if (pageSize < 1) pageSize = 50;
+    if (pageSize > MAX_PAGE_SIZE) pageSize = MAX_PAGE_SIZE;
+
     const offset = (page - 1) * pageSize;
 
-    // Get total count
+    // Security: Prevent offset overflow
+    if (offset > MAX_OFFSET) {
+      res.status(400).json({
+        success: false,
+        error: `Offset too large. Maximum allowed offset is ${MAX_OFFSET}`,
+      });
+      return;
+    }
+
+    const escapedTable = escapeIdentifier(tableName);
+
+    // Get total count with validated table name
     const countResult = await queryExecutor.executeQuery(
-      `SELECT COUNT(*) as total FROM \`${tableName}\``
+      `SELECT COUNT(*) as total FROM ${escapedTable}`
     );
     const countRow = countResult.rows[0] as Record<string, unknown> | undefined;
     const total = Number(countRow?.total || 0);
 
-    // Get paginated data
+    // Get paginated data - using parameterized values where possible
+    // Note: MySQL doesn't support parameterized LIMIT/OFFSET, but we've validated they're safe integers
     const dataResult = await queryExecutor.executeQuery(
-      `SELECT * FROM \`${tableName}\` LIMIT ${pageSize} OFFSET ${offset}`
+      `SELECT * FROM ${escapedTable} LIMIT ${pageSize} OFFSET ${offset}`
     );
 
     res.json({
@@ -162,7 +229,12 @@ router.get('/tables/:tableName/info', async (req: Request, res: Response) => {
   try {
     const { tableName } = req.params;
 
+    // Validate table name to prevent SQL injection
+    await validateTableName(tableName);
+
     // Get table info from information_schema
+    // Using literal string escaping for the table name in WHERE clause
+    const escapedTableLiteral = tableName.replace(/'/g, "''");
     const result = await queryExecutor.executeQuery(`
       SELECT
         table_name,
@@ -178,7 +250,7 @@ router.get('/tables/:tableName/info', async (req: Request, res: Response) => {
         table_comment
       FROM information_schema.TABLES
       WHERE table_schema = DATABASE()
-        AND table_name = '${tableName}'
+        AND table_name = '${escapedTableLiteral}'
     `);
 
     if (result.rows.length === 0) {
@@ -209,7 +281,11 @@ router.get('/tables/:tableName/indexes', async (req: Request, res: Response) => 
   try {
     const { tableName } = req.params;
 
-    const result = await queryExecutor.executeQuery(`SHOW INDEX FROM \`${tableName}\``);
+    // Validate table name to prevent SQL injection
+    await validateTableName(tableName);
+
+    const escapedTable = escapeIdentifier(tableName);
+    const result = await queryExecutor.executeQuery(`SHOW INDEX FROM ${escapedTable}`);
 
     res.json({
       success: true,
