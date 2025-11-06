@@ -174,11 +174,11 @@ export const DataTable: React.FC<DataTableProps> = ({
 
       {/* Pagination */}
       {enablePagination && totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
             Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, rows.length)} of {rows.length} rows
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 order-1 sm:order-2">
             <Button
               size="sm"
               variant="secondary"
@@ -186,9 +186,9 @@ export const DataTable: React.FC<DataTableProps> = ({
               disabled={currentPage === 1}
               icon={<ChevronLeft className="w-4 h-4" />}
             >
-              Previous
+              <span className="hidden sm:inline">Previous</span>
             </Button>
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
               Page {currentPage} of {totalPages}
             </span>
             <Button
@@ -199,7 +199,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               iconPosition="right"
               icon={<ChevronRight className="w-4 h-4" />}
             >
-              Next
+              <span className="hidden sm:inline">Next</span>
             </Button>
           </div>
         </div>

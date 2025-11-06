@@ -133,12 +133,12 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
       {/* Header */}
       <Card>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Table2 className="w-6 h-6 text-blue-600" />
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{tableName}</h2>
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <Table2 className="w-5 h-5 md:w-6 md:h-6 text-blue-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">{tableName}</h2>
               {infoData && infoData.table_rows !== undefined && infoData.data_length !== undefined && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {infoData.table_rows.toLocaleString()} rows • {formatBytes(infoData.data_length)} data • {infoData.engine} engine
                 </p>
               )}
@@ -150,7 +150,7 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
       {/* Tabs */}
       <Card padding="none">
         <div className="border-b border-gray-200 dark:border-gray-700">
-          <div className="flex space-x-1 px-4">
+          <div className="flex space-x-1 px-2 md:px-4 overflow-x-auto">
             {[
               { id: 'data', label: 'Browse Data', icon: DatabaseIcon },
               { id: 'structure', label: 'Structure', icon: Table2 },
@@ -160,14 +160,15 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
-                className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+                className={`flex items-center gap-2 px-3 md:px-4 py-3 border-b-2 font-medium text-xs md:text-sm transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.id === 'data' ? 'Data' : tab.id === 'structure' ? 'Schema' : tab.label}</span>
               </button>
             ))}
           </div>
@@ -228,11 +229,11 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
 
                   {/* Pagination */}
                   {tableData.pagination.totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
                         Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, tableData.pagination.total)} of {tableData.pagination.total} rows
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 order-1 sm:order-2">
                         <Button
                           size="sm"
                           variant="secondary"
@@ -240,9 +241,9 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                           disabled={page === 1}
                           icon={<ChevronLeft className="w-4 h-4" />}
                         >
-                          Previous
+                          <span className="hidden sm:inline">Previous</span>
                         </Button>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                           Page {page} of {tableData.pagination.totalPages}
                         </span>
                         <Button
@@ -253,7 +254,7 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                           iconPosition="right"
                           icon={<ChevronRight className="w-4 h-4" />}
                         >
-                          Next
+                          <span className="hidden sm:inline">Next</span>
                         </Button>
                       </div>
                     </div>
@@ -380,9 +381,9 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                 {/* Query Results */}
                 {executeMutation.isSuccess && executeMutation.data && (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Results</h3>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">Results</h3>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                         <span className="font-medium">{executeMutation.data.rowCount}</span> row
                         {executeMutation.data.rowCount !== 1 ? 's' : ''} •{' '}
                         <span className="font-medium">{executeMutation.data.executionTime}</span>
@@ -411,7 +412,7 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                   <Spinner size="lg" />
                 </div>
               ) : infoData ? (
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">General Information</h3>
                     <dl className="space-y-2">

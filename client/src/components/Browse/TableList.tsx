@@ -58,8 +58,8 @@ export const TableList: React.FC<TableListProps> = ({ selectedTable, onTableSele
     <Card padding="sm" className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3 px-2">
-        <Table2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Tables</h3>
+        <Table2 className="w-4 h-4 md:w-5 md:h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" />
+        <h3 className="text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100">Tables</h3>
         <Badge variant="info" size="sm">
           {data.tables.length}
         </Badge>
@@ -80,7 +80,7 @@ export const TableList: React.FC<TableListProps> = ({ selectedTable, onTableSele
       </div>
 
       {/* Table List with scrollbar */}
-      <div className="overflow-y-auto space-y-1" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+      <div className="overflow-y-auto space-y-1 lg:max-h-[calc(100vh-350px)] max-h-[300px]">
         {filteredTables.length === 0 ? (
           <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
             {searchTerm ? 'No tables found' : 'No tables'}
