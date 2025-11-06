@@ -7,7 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Default database path (in project root /data directory)
-const DEFAULT_DB_PATH = path.resolve(__dirname, '../../../data/mysql-mcp.db');
+// Can be overridden with DB_PATH environment variable
+const DEFAULT_DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../../data/mysql-mcp.db');
 
 /**
  * Database schema definition
