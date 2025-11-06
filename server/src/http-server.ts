@@ -98,9 +98,10 @@ export function createHttpServer(config: EnvironmentConfig): Express {
     const publicPath = path.resolve(__dirname, '../public');
     app.use(express.static(publicPath));
 
-    // Fallback to index.html for client-side routing (Express 5 syntax with named wildcard)
-    app.get('/*splat', (req: Request, res: Response) => {
-      res.sendFile(path.join(publicPath, 'index.html'));
+    // Fallback to index.html for client-side routing (Express 5 syntax)
+    // Use /{*splat} to match ALL routes including root
+    app.get('/{*splat}', (req: Request, res: Response) => {
+      res.sendFile('index.html', { root: publicPath });
     });
   } else {
     // Development mode - API only

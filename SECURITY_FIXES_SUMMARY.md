@@ -298,7 +298,7 @@ To verify the fixes work correctly:
 ### 1. Test SQL Injection Protection
 ```bash
 # Try to inject SQL via table name (should fail)
-curl -X GET "http://localhost:3000/api/browse/tables/users' OR '1'='1/structure" \
+curl -X GET "http://localhost:9274/api/browse/tables/users' OR '1'='1/structure" \
   -H "Authorization: Bearer YOUR_API_KEY"
 # Expected: 400 Bad Request - Invalid table name format
 ```
@@ -306,13 +306,13 @@ curl -X GET "http://localhost:3000/api/browse/tables/users' OR '1'='1/structure"
 ### 2. Test Password Requirements
 ```bash
 # Try weak password (should fail)
-curl -X POST http://localhost:3000/api/auth/change-password \
+curl -X POST http://localhost:9274/api/auth/change-password \
   -H "Content-Type: application/json" \
   -d '{"currentPassword":"admin","newPassword":"weak","confirmPassword":"weak"}'
 # Expected: 400 Bad Request - Password requirements not met
 
 # Try strong password (should succeed)
-curl -X POST http://localhost:3000/api/auth/change-password \
+curl -X POST http://localhost:9274/api/auth/change-password \
   -H "Content-Type: application/json" \
   -d '{"currentPassword":"admin","newPassword":"MyS3cure!Pass","confirmPassword":"MyS3cure!Pass"}'
 # Expected: 200 OK
@@ -321,12 +321,12 @@ curl -X POST http://localhost:3000/api/auth/change-password \
 ### 3. Test Log Sanitization
 ```bash
 # Create connection and check logs don't contain password
-curl -X POST http://localhost:3000/api/connections \
+curl -X POST http://localhost:9274/api/connections \
   -H "Content-Type: application/json" \
   -d '{"name":"test","host":"localhost","port":3306,"user":"root","password":"secret123"}'
 
 # Check logs - password should be [REDACTED]
-curl -X GET http://localhost:3000/api/logs | grep -i password
+curl -X GET http://localhost:9274/api/logs | grep -i password
 # Expected: Should show [REDACTED] instead of actual password
 ```
 

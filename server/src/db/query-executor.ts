@@ -43,7 +43,7 @@ export class QueryExecutor {
     }
 
     if (!connectionId) {
-      throw new Error('No active connection configured');
+      throw new Error('No active connection configured. Please visit http://localhost:9274 to add a database connection.');
     }
 
     if (!database) {

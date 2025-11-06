@@ -73,7 +73,7 @@ cp .env.example .env
 # Start with Docker Compose
 docker-compose up -d
 
-# Access Web UI at http://localhost:3000
+# Access Web UI at http://localhost:9274
 # Login with default credentials: admin / admin
 # You'll be prompted to change the password on first login
 ```
@@ -234,7 +234,7 @@ Use this when the server is already running (via `npm start` or docker):
   "mcpServers": {
     "mysql-mcp": {
       "type": "http",
-      "url": "http://localhost:3000/mcp",
+      "url": "http://localhost:9274/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY_HERE"
       }

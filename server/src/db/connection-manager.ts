@@ -139,7 +139,7 @@ export class ConnectionManager {
    */
   async getActivePool(): Promise<{ pool: Pool; connectionId: string; database: string }> {
     if (!this.activeConnectionId) {
-      throw new Error('No active connection configured');
+      throw new Error('No active connection configured. Please visit http://localhost:9274 to add a database connection.');
     }
 
     const database = this.getActiveDatabase(this.activeConnectionId);

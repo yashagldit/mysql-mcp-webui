@@ -56,7 +56,7 @@ npm run build
 npm run dev
 
 # Or run separately:
-npm run dev:server  # Backend on port 3000
+npm run dev:server  # Backend on port 9274
 npm run dev:client  # Frontend on port 5173
 ```
 
@@ -66,7 +66,7 @@ Create a `.env` file in the server directory if needed:
 
 ```env
 TRANSPORT=http
-HTTP_PORT=3000
+HTTP_PORT=9274
 NODE_ENV=development
 ```
 

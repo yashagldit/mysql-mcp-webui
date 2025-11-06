@@ -37,7 +37,7 @@ npm run dev:client
 
 ### Running
 ```bash
-# Start in HTTP mode (default, port 3000)
+# Start in HTTP mode (default, port 9274)
 npm run start:http
 
 # Start in stdio mode (for Claude Desktop direct integration)
@@ -250,7 +250,7 @@ All environment variables are validated at startup in [server/src/config/environ
 
 **Note**: JWT authentication is only used in HTTP mode for WebUI user logins. Stdio mode (MCP) uses API key authentication via AUTH_TOKEN.
 
-In development, the client runs on port 5173 (Vite) and proxies API requests to the server on port 3000.
+In development, the client runs on port 5173 (Vite) and proxies API requests to the server on port 9274.
 
 ## Important Conventions
 

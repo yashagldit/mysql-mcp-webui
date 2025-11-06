@@ -3,6 +3,11 @@
  * Centralizes and validates all environment variables
  */
 
+import crypto from 'crypto';
+
+// Cache for environment config to prevent regenerating JWT secret
+let cachedConfig: EnvironmentConfig | null = null;
+
 export interface EnvironmentConfig {
   // Transport
   transport: 'stdio' | 'http';
@@ -35,6 +40,11 @@ export interface EnvironmentConfig {
  * Load and validate environment configuration
  */
 export function loadEnvironment(): EnvironmentConfig {
+  // Return cached config if already loaded (prevents JWT regeneration)
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+
   const nodeEnv = process.env.NODE_ENV === 'production' ? 'production' : 'development';
   const transport = (process.env.TRANSPORT || 'http') as 'stdio' | 'http';
 
@@ -44,7 +54,7 @@ export function loadEnvironment(): EnvironmentConfig {
   }
 
   // HTTP configuration
-  const httpPort = parseInt(process.env.HTTP_PORT || '3000', 10);
+  const httpPort = parseInt(process.env.HTTP_PORT || '9274', 10);
   if (isNaN(httpPort) || httpPort < 1 || httpPort > 65535) {
     throw new Error(`Invalid HTTP_PORT value: ${process.env.HTTP_PORT}. Must be a number between 1 and 65535`);
   }
@@ -98,7 +108,13 @@ export function loadEnvironment(): EnvironmentConfig {
   // stdio mode uses AUTH_TOKEN (API key) for authentication
   if (transport === 'http' && !jwtSecret) {
     if (nodeEnv === 'production') {
-      throw new Error('JWT_SECRET environment variable is required in production HTTP mode. Generate a secure random string (e.g., openssl rand -base64 32)');
+      // Auto-generate a secure random JWT secret for production
+      // Note: This will be different each time the server restarts
+      jwtSecret = crypto.randomBytes(32).toString('base64');
+      console.warn('⚠️  Warning: No JWT_SECRET provided. Auto-generated a random secret.');
+      console.warn('   This secret will change on server restart, logging out all users.');
+      console.warn('   For persistent sessions, set JWT_SECRET environment variable.');
+      console.warn(`   Generated secret: ${jwtSecret}`);
     } else {
       console.warn('⚠️  Warning: Using default JWT_SECRET for development. DO NOT use this in production!');
       console.warn('   Set JWT_SECRET environment variable to a secure random string.');
@@ -115,7 +131,8 @@ export function loadEnvironment(): EnvironmentConfig {
     throw new Error('JWT_SECRET must be at least 32 characters long for security');
   }
 
-  return {
+  // Cache the config to prevent regenerating JWT secret on subsequent calls
+  cachedConfig = {
     transport,
     httpPort,
     enableHttps: enableHttps && !!sslCertPath && !!sslKeyPath,
@@ -129,6 +146,8 @@ export function loadEnvironment(): EnvironmentConfig {
     jwtSecret,
     jwtExpiresIn,
   };
+
+  return cachedConfig;
 }
 
 /**

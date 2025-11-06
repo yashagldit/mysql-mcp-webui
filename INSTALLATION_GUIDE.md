@@ -69,7 +69,7 @@ nano .env  # or vim .env
 TRANSPORT=http
 
 # Port
-HTTP_PORT=3000
+HTTP_PORT=9274
 
 # Environment
 NODE_ENV=production
@@ -82,7 +82,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 **With HTTPS (recommended for production):**
 ```env
 TRANSPORT=http
-HTTP_PORT=3000
+HTTP_PORT=9274
 NODE_ENV=production
 
 # Enable HTTPS
@@ -114,10 +114,10 @@ docker-compose logs | grep "API key"
 
 ```bash
 # Open in browser
-http://your-server-ip:3000
+http://your-server-ip:9274
 
 # Or if using HTTPS
-https://yourdomain.com:3000
+https://yourdomain.com:9274
 ```
 
 ### Step 6: Configure Firewall
@@ -132,7 +132,7 @@ sudo firewall-cmd --permanent --add-port=3000/tcp
 sudo firewall-cmd --reload
 
 # Or restrict to specific IPs
-sudo ufw allow from 192.168.1.0/24 to any port 3000
+sudo ufw allow from 192.168.1.0/24 to any port 9274
 ```
 
 ### Managing the Service
@@ -202,7 +202,7 @@ nano .env
 Set at minimum:
 ```env
 TRANSPORT=http
-HTTP_PORT=3000
+HTTP_PORT=9274
 NODE_ENV=production
 ```
 
@@ -239,7 +239,7 @@ RestartSec=10
 # Environment variables
 Environment="NODE_ENV=production"
 Environment="TRANSPORT=http"
-Environment="HTTP_PORT=3000"
+Environment="HTTP_PORT=9274"
 
 # Logging
 StandardOutput=journal
@@ -321,7 +321,7 @@ server {
 
     # Proxy settings
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:9274;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -374,7 +374,7 @@ docker-compose up -d
 docker-compose logs | grep "API key"
 
 # 5. Open in browser
-http://your-server-ip:3000
+http://your-server-ip:9274
 ```
 
 ### Native Installation:
@@ -412,7 +412,7 @@ docker-compose logs | grep "API key"
 ```
 
 ### 2. Access Web UI
-Navigate to `http://your-server-ip:3000` and enter the API key.
+Navigate to `http://your-server-ip:9274` and enter the API key.
 
 ### 3. Add MySQL Connection
 1. Click "Add Connection" in the Web UI
@@ -433,7 +433,7 @@ Add to your Claude config (`~/.claude.json`):
   "mcpServers": {
     "mysql-mcp": {
       "type": "http",
-      "url": "http://your-server-ip:3000/mcp",
+      "url": "http://your-server-ip:9274/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY_HERE"
       }
@@ -464,7 +464,7 @@ Add to your Claude config (`~/.claude.json`):
    ```bash
    sudo ufw allow 3000/tcp
    # Or restrict to specific IPs
-   sudo ufw allow from YOUR_IP to any port 3000
+   sudo ufw allow from YOUR_IP to any port 9274
    ```
 
 5. **Regular backups**:
@@ -480,7 +480,7 @@ Add to your Claude config (`~/.claude.json`):
 ### Port Already in Use
 ```bash
 # Check what's using the port
-sudo lsof -i :3000
+sudo lsof -i :9274
 
 # Kill the process
 sudo kill -9 PID
@@ -562,7 +562,7 @@ sudo systemctl restart mysql-mcp-webui
 ### Check Service Health
 ```bash
 # Health check endpoint
-curl http://localhost:3000/api/health
+curl http://localhost:9274/api/health
 
 # Expected response:
 # {"status":"healthy","transport":"http"}

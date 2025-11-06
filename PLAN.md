@@ -1084,7 +1084,7 @@ Health check endpoint (public, no auth required).
 {
   "mcpServers": {
     "mysql-webui": {
-      "url": "http://localhost:3000/mcp",
+      "url": "http://localhost:9274/mcp",
       "headers": {
         "Authorization": "Bearer your-token-here"
       }
@@ -1112,7 +1112,7 @@ npm install
 # Run both server and client in dev mode
 npm run dev
 
-# Server runs on http://localhost:3000
+# Server runs on http://localhost:9274
 # Client dev server runs on http://localhost:5173 with API proxy
 ```
 
@@ -1182,7 +1182,7 @@ CMD ["node", "server/dist/index.js"]
 
 1. User installs package: `npm install -g mysql-mcp-webui`
 2. Starts server: `mysql-mcp-webui` (or via PM2)
-3. Opens web UI: `http://localhost:3000`
+3. Opens web UI: `http://localhost:9274`
 4. Enters authentication token (shown in console or Settings page)
 5. Adds first MySQL connection with host/port/user/password
 6. Clicks "Test Connection" to verify and discover databases
@@ -1196,7 +1196,7 @@ CMD ["node", "server/dist/index.js"]
 ### Daily Usage Workflow
 
 **Via Web UI:**
-1. Open `http://localhost:3000`
+1. Open `http://localhost:9274`
 2. View active connection and database in header
 3. Switch databases or connections as needed
 4. Adjust permissions on the fly

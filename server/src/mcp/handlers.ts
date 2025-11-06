@@ -236,7 +236,7 @@ export class McpHandlers {
           content: [
             {
               type: 'text',
-              text: 'Error: No active connection configured',
+              text: 'Error: No active connection configured. Please visit http://localhost:9274 to add a database connection.',
             },
           ],
           isError: true,
@@ -348,7 +348,7 @@ export class McpHandlers {
           content: [
             {
               type: 'text',
-              text: 'Error: No active connection configured',
+              text: 'Error: No active connection configured. Please visit http://localhost:9274 to add a database connection.',
             },
           ],
           isError: true,

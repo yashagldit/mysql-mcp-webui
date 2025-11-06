@@ -27,7 +27,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Build argument for port (can be overridden at build time)
-ARG HTTP_PORT=3000
+ARG HTTP_PORT=9274
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -57,7 +57,7 @@ EXPOSE ${HTTP_PORT}
 
 # Health check (uses environment variable at runtime)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "const port = process.env.HTTP_PORT || 3000; require('http').get('http://localhost:' + port + '/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+  CMD node -e "const port = process.env.HTTP_PORT || 9274; require('http').get('http://localhost:' + port + '/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
 # Set environment variables
 ENV NODE_ENV=production \

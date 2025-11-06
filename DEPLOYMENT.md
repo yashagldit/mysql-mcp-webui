@@ -33,7 +33,7 @@ This guide covers deploying MySQL MCP WebUI for production use with Docker, incl
    ```
 
 3. **Access the Web UI:**
-   - Open http://localhost:3000
+   - Open http://localhost:9274
    - Get your API key from the container logs:
      ```bash
      docker-compose logs mysql-mcp | grep "API key"
@@ -59,7 +59,7 @@ docker-compose build
 ```bash
 docker run -d \
   --name mysql-mcp \
-  -p 3000:3000 \
+  -p 3000:9274 \
   -v $(pwd)/data:/app/data \
   -e TRANSPORT=http \
   -e NODE_ENV=production \
@@ -70,7 +70,7 @@ docker run -d \
 ```bash
 docker run -d \
   --name mysql-mcp \
-  -p 3000:3000 \
+  -p 3000:9274 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/certs:/app/certs:ro \
   -e TRANSPORT=http \
@@ -121,7 +121,7 @@ docker run -d \
 TRANSPORT=http
 
 # HTTP port
-HTTP_PORT=3000
+HTTP_PORT=9274
 
 # Environment
 NODE_ENV=production
@@ -283,7 +283,7 @@ The Web UI can set a "default connection" that applies to new instances:
 
 2. **Set default via API:**
    ```bash
-   curl -X POST http://localhost:3000/api/connections/:id/set-default \
+   curl -X POST http://localhost:9274/api/connections/:id/set-default \
      -H "Authorization: Bearer YOUR_API_KEY"
    ```
 
@@ -327,7 +327,7 @@ Configure per-database permissions in the Web UI:
 **Firewall rules:**
 ```bash
 # Allow only from specific IPs
-ufw allow from 192.168.1.0/24 to any port 3000
+ufw allow from 192.168.1.0/24 to any port 9274
 ```
 
 **Reverse proxy (recommended):**
@@ -340,7 +340,7 @@ server {
     ssl_certificate_key /path/to/privkey.pem;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:9274;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -387,7 +387,7 @@ FLUSH PRIVILEGES;
 
 **Endpoint:**
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:9274/api/health
 ```
 
 **Response:**
@@ -439,7 +439,7 @@ docker-compose up -d
 
 **Clear old logs:**
 ```bash
-curl -X POST http://localhost:3000/api/logs/clear?days=30 \
+curl -X POST http://localhost:9274/api/logs/clear?days=30 \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -480,7 +480,7 @@ docker-compose logs -f
 
 3. Verify port is accessible:
    ```bash
-   curl http://localhost:3000/api/health
+   curl http://localhost:9274/api/health
    ```
 
 4. Check firewall rules
@@ -550,7 +550,7 @@ docker-compose logs -f
 3. Check which endpoint is being rate limited:
    ```bash
    # Response includes Retry-After header
-   curl -i http://localhost:3000/api/query
+   curl -i http://localhost:9274/api/query
    ```
 
 ---

@@ -13,7 +13,7 @@ export const McpConfigSnippet: React.FC<McpConfigSnippetProps> = ({ settings }) 
   "mcpServers": {
     "mysql-mcp": {
       "type": "http",
-      "url": "http://localhost:${settings?.httpPort || 3000}/mcp",
+      "url": "http://localhost:${settings?.httpPort || 9274}/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
       }

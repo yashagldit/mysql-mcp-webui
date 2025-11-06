@@ -1,11 +1,12 @@
 {
   "name": "mysql-mcp-webui",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "MySQL MCP server with React-based web UI for live configuration management",
   "workspaces": [
     "server",
     "client"
   ],
+  "type": "module",
   "bin": {
     "mysql-mcp-webui": "server/dist/index.js"
   },
@@ -62,9 +63,16 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.4.1",
     "cookie-parser": "^1.4.7",
-    "jsonwebtoken": "^9.0.2"
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.5",
+    "node-sql-parser": "^5.3.4",
+    "zod": "^3.23.8"
   }
 }

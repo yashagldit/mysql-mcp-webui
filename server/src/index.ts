@@ -8,9 +8,120 @@ import { getConnectionManager } from './db/connection-manager.js';
 import { loadEnvironment, getConfigSummary } from './config/environment.js';
 import { loadTlsConfig, createHttpsOptions } from './config/tls.js';
 
+function showHelp() {
+  try {
+    // Get the actual installation path
+    const scriptPath = new URL(import.meta.url).pathname;
+
+    // Get or create default API key
+    const dbManager = getDatabaseManager();
+    let apiKeys = dbManager.getAllApiKeys();
+    let apiKey: string;
+
+    if (apiKeys.length === 0) {
+      const newKey = dbManager.createApiKey('Default API Key');
+      apiKey = newKey.key;
+    } else {
+      apiKey = apiKeys[0].key;
+    }
+
+    console.log(`
+MySQL MCP WebUI - MySQL Database MCP Server with Web UI
+Version: 0.0.4
+
+USAGE:
+  mysql-mcp-webui [OPTIONS]
+
+OPTIONS:
+  --help, -h            Show this help message
+  --generate-token      Generate a new API token for MCP authentication
+  --version, -v         Show version information
+
+CLAUDE DESKTOP CONFIGURATION:
+  Add to ~/.config/Claude/claude_desktop_config.json or
+  ~/Library/Application Support/Claude/claude_desktop_config.json:
+
+  {
+    "mcpServers": {
+      "mysql-mcp": {
+        "command": "node",
+        "args": [
+          "${scriptPath}"
+        ],
+        "env": {
+          "TRANSPORT": "stdio",
+          "AUTH_TOKEN": "${apiKey}",
+          "HTTP_PORT": "9274"
+        }
+      }
+    }
+  }
+
+  Note: HTTP_PORT is for the Web UI (separate from MCP stdio communication)
+        Generate a new token with: mysql-mcp-webui --generate-token
+
+WEB UI:
+  Access the configuration interface at http://localhost:9274
+  Default credentials: admin / admin (change on first login)
+
+DOCUMENTATION:
+  https://github.com/yashagldit/mysql-mcp-webui
+`);
+  } catch (error) {
+    console.error('Error displaying help:', error);
+  }
+}
+
+function generateToken() {
+  try {
+    console.log('Generating new API token...\n');
+    const dbManager = getDatabaseManager();
+    const apiKey = dbManager.createApiKey('CLI Generated Token');
+
+    console.log('✓ API Token generated successfully!\n');
+    console.log('━'.repeat(60));
+    console.log(`  ${apiKey.key}`);
+    console.log('━'.repeat(60));
+    console.log('\n⚠️  IMPORTANT: Save this token securely!');
+    console.log('   This token will NOT be shown again.\n');
+    console.log('Use this token in your Claude Desktop config:\n');
+    console.log('  "env": {');
+    console.log('    "TRANSPORT": "stdio",');
+    console.log(`    "AUTH_TOKEN": "${apiKey.key}"`);
+    console.log('  }\n');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error generating token:', error);
+    process.exit(1);
+  }
+}
+
 async function main() {
   try {
+    // Handle CLI arguments
+    const args = process.argv.slice(2);
+
+    if (args.includes('--help') || args.includes('-h')) {
+      showHelp();
+      process.exit(0);
+    }
+
+    if (args.includes('--version') || args.includes('-v')) {
+      console.log('mysql-mcp-webui version 0.0.4');
+      process.exit(0);
+    }
+
+    if (args.includes('--generate-token')) {
+      generateToken();
+      return;
+    }
+
     console.error('Starting MySQL MCP WebUI Server...');
+
+    // Default to production if NODE_ENV not set (for npm global installs)
+    if (!process.env.NODE_ENV) {
+      process.env.NODE_ENV = 'production';
+    }
 
     // Load environment configuration
     const config = loadEnvironment();

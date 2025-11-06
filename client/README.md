@@ -90,7 +90,7 @@ npm run preview
 
 The development server runs on [http://localhost:5173](http://localhost:5173) with hot module replacement.
 
-API requests are proxied to `http://localhost:3000` (backend server).
+API requests are proxied to `http://localhost:9274` (backend server).
 
 ### Building
 
@@ -281,7 +281,7 @@ cd ../server
 npm start
 ```
 
-The app will be available at `http://localhost:3000`.
+The app will be available at `http://localhost:9274`.
 
 ## 🤝 Contributing
 
