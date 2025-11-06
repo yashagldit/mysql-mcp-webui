@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mysql-mcp:
     build:
@@ -14,6 +12,9 @@ services:
       # Transport mode
       - TRANSPORT=http
       - HTTP_PORT=5197
+
+      # Database path
+      - DB_PATH=/app/data/mysql-mcp.db
 
       # JWT Authentication
       - JWT_SECRET=${JWT_SECRET}
@@ -33,8 +34,8 @@ services:
       - NODE_ENV=production
 
     volumes:
-      # Persist SQLite database
-      - ./data:/app/data
+      # Persist SQLite database using named volume (Docker-managed)
+      - mysql-mcp-data:/app/data
 
       # SSL certificates (if using HTTPS)
       # Mount your certificates here
@@ -75,5 +76,5 @@ networks:
     driver: bridge
 
 volumes:
-  data:
+  mysql-mcp-data:
     driver: local
