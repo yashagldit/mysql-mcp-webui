@@ -39,8 +39,7 @@ COPY client/package*.json ./client/
 COPY server/package*.json ./server/
 
 # Install production dependencies only
-RUN npm ci --omit=dev && \
-    npm cache clean --force
+RUN npm ci --omit=dev
 
 # Copy built artifacts from builder stage
 COPY --from=builder --chown=nodejs:nodejs /app/server/dist ./server/dist

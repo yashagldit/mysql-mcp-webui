@@ -2,12 +2,62 @@ import type { Pool, PoolConnection, FieldPacket, RowDataPacket } from 'mysql2/pr
 import type { Permissions, QueryResult } from '../types/index.js';
 import { getPermissionValidator } from './permissions.js';
 import { getConnectionManager } from './connection-manager.js';
+import { getSessionManager } from '../mcp/session-manager.js';
 import { getDatabaseManager } from './database-manager.js';
 
 export class QueryExecutor {
   private permissionValidator = getPermissionValidator();
   private connectionManager = getConnectionManager();
+  private sessionManager = getSessionManager();
   private dbManager = getDatabaseManager();
+  private currentSessionId: string | null = null;
+  private transportMode: 'stdio' | 'http' = 'stdio';
+
+  /**
+   * Set session context for HTTP mode
+   */
+  setSession(sessionId: string | null, mode: 'stdio' | 'http'): void {
+    this.currentSessionId = sessionId;
+    this.transportMode = mode;
+  }
+
+  /**
+   * Get active pool based on transport mode (session-aware)
+   * Falls back to ConnectionManager if no session context is set
+   */
+  private async getActivePool(): Promise<{ pool: Pool; connectionId: string; database: string }> {
+    let connectionId: string | null;
+    let database: string | null;
+
+    // Get active connection and database based on context
+    // Use SessionManager only if we have both HTTP mode AND a session ID
+    // Otherwise fall back to ConnectionManager (for WebUI browse API, stdio mode, etc.)
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      // MCP HTTP mode with session - use SessionManager
+      connectionId = this.sessionManager.getActiveConnection(this.currentSessionId);
+      database = connectionId ? this.sessionManager.getActiveDatabase(this.currentSessionId, connectionId) : null;
+    } else {
+      // Default: use ConnectionManager (WebUI browse API, stdio mode, or no session)
+      connectionId = this.connectionManager.getActiveConnectionId();
+      database = connectionId ? this.connectionManager.getActiveDatabase(connectionId) : null;
+    }
+
+    if (!connectionId) {
+      throw new Error('No active connection configured');
+    }
+
+    if (!database) {
+      throw new Error('No active database selected');
+    }
+
+    const pool = await this.connectionManager.getPool(connectionId);
+
+    return {
+      pool,
+      connectionId,
+      database,
+    };
+  }
 
   /**
    * Execute a SQL query with permission checking and transaction support
@@ -15,8 +65,8 @@ export class QueryExecutor {
   async executeQuery(sql: string): Promise<QueryResult> {
     const startTime = Date.now();
 
-    // Get active connection and database
-    const { pool, connectionId, database } = await this.connectionManager.getActivePool();
+    // Get active connection and database (session-aware)
+    const { pool, connectionId, database } = await this.getActivePool();
 
     // Get permissions for the active database
     const dbConfig = this.dbManager.getDatabaseConfig(connectionId, database);

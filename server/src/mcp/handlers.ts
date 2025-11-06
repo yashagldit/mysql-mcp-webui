@@ -191,6 +191,9 @@ export class McpHandlers {
     }
 
     try {
+      // Pass session context to query executor
+      this.queryExecutor.setSession(this.currentSessionId, this.transportMode);
+
       const result = await this.queryExecutor.executeQuery(sql);
 
       // Format result as text

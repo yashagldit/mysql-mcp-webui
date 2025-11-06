@@ -858,6 +858,19 @@ export class DatabaseManager {
   }
 
   /**
+   * Set active connection (marks one connection as active, all others as inactive)
+   */
+  setActiveConnection(connectionId: string): void {
+    this.executeWithRetry(() => {
+      // Deactivate all connections
+      this.db.prepare('UPDATE connections SET is_active = 0').run();
+
+      // Activate the specified connection
+      this.db.prepare('UPDATE connections SET is_active = 1 WHERE id = ?').run(connectionId);
+    });
+  }
+
+  /**
    * Enable a database (make it accessible via MCP)
    */
   enableDatabase(connectionId: string, databaseName: string): void {

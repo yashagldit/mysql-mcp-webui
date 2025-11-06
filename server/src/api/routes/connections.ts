@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getDatabaseManager } from '../../db/database-manager.js';
 import { getConnectionManager } from '../../db/connection-manager.js';
+import { getSessionManager } from '../../mcp/session-manager.js';
 import { getDatabaseDiscovery } from '../../db/discovery.js';
 import { getMasterKey } from '../../config/master-key.js';
 import {
@@ -14,6 +15,7 @@ import {
 const router = Router();
 const dbManager = getDatabaseManager();
 const connectionManager = getConnectionManager();
+const sessionManager = getSessionManager();
 const databaseDiscovery = getDatabaseDiscovery();
 
 /**
@@ -332,7 +334,20 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
       return;
     }
 
+    // Set as default for new sessions
     dbManager.setDefaultConnectionId(req.params.id);
+
+    // Mark this connection as active in the database
+    dbManager.setActiveConnection(req.params.id);
+
+    // Also activate for current session (HTTP mode)
+    connectionManager.setActiveConnectionId(req.params.id);
+    if (connection.activeDatabase) {
+      connectionManager.setActiveDatabase(req.params.id, connection.activeDatabase);
+    }
+
+    // Propagate to all active MCP sessions (HTTP mode)
+    sessionManager.setActiveConnectionForAllSessions(req.params.id);
 
     res.json({
       success: true,

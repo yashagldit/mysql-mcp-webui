@@ -161,6 +161,27 @@ export class SessionManager {
   getSessionCount(): number {
     return this.sessions.size;
   }
+
+  /**
+   * Update active connection for all existing sessions
+   * Used when connection is switched globally via WebUI
+   */
+  setActiveConnectionForAllSessions(connectionId: string): void {
+    for (const session of this.sessions.values()) {
+      session.activeConnectionId = connectionId;
+
+      // Try to load active database for the new connection
+      if (!session.activeDatabases.has(connectionId)) {
+        const dbManager = getDatabaseManager();
+        const activeDb = dbManager.getActiveDatabase(connectionId);
+        if (activeDb) {
+          session.activeDatabases.set(connectionId, activeDb);
+        }
+      }
+    }
+
+    console.log(`Updated ${this.sessions.size} sessions to use connection: ${connectionId}`);
+  }
 }
 
 // Singleton instance
