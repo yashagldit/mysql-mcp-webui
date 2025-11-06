@@ -9,6 +9,7 @@ import { getDatabaseManager } from '../db/database-manager.js';
 import { getDatabaseDiscovery } from '../db/discovery.js';
 import { getConnectionManager } from '../db/connection-manager.js';
 import { getSessionManager } from './session-manager.js';
+import { sanitizeForLogging } from '../utils/sanitize.js';
 
 export class McpHandlers {
   private queryExecutor = getQueryExecutor();
@@ -130,12 +131,13 @@ export class McpHandlers {
         const duration = Date.now() - startTime;
         const statusCode = result.isError ? 400 : 200;
 
+        // Security: Sanitize request and response data before logging
         this.dbManager.logRequest(
           this.currentApiKeyId,
           `/mcp/${name}`,
           'TOOL_CALL',
-          { tool: name, arguments: args },
-          result,
+          sanitizeForLogging({ tool: name, arguments: args }),
+          sanitizeForLogging(result),
           statusCode,
           duration
         );
