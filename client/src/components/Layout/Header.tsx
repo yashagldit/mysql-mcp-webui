@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Database, Activity, Sun, Moon, Monitor, Menu } from 'lucide-react';
+import { Database, Activity, Sun, Moon, Monitor, Menu, LogOut } from 'lucide-react';
 import { Badge, DatabaseSwitcher, Toggle } from '../Common';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSettings, useToggleMcp } from '../../hooks/useActiveState';
+import { useAuth } from '../Auth';
 
 interface HeaderProps {
   activeConnection?: string;
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { theme, setTheme } = useTheme();
   const { data: settings } = useSettings();
   const toggleMcp = useToggleMcp();
+  const { logout, user } = useAuth();
 
   const cycleTheme = () => {
     const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
@@ -40,6 +42,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleMcpToggle = (enabled: boolean) => {
     toggleMcp.mutate(enabled);
+  };
+
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
@@ -110,6 +116,16 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Toggle theme"
           >
             {getThemeIcon()}
+          </button>
+
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 text-gray-600 dark:text-gray-300"
+            title={user ? `Logout (${user.username})` : 'Logout'}
+            aria-label="Logout"
+          >
+            <LogOut className="w-5 h-5" />
           </button>
 
           {/* Connection status - hidden on small mobile */}

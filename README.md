@@ -25,26 +25,45 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) is an open standa
 # Install globally via npm
 npm install -g mysql-mcp-webui
 
-# Or run directly with npx
+# Or run directly with npx (no installation required)
 npx mysql-mcp-webui
 ```
 
-### Setup in 3 Steps
+### Setup Guide for Claude Desktop
 
-#### 1. Generate an API Key
+**Important:** You must generate an API token *before* configuring Claude Desktop. Follow these steps in order:
+
+#### Step 1: Generate Your API Token
+
+Before setting up Claude Desktop, generate an authentication token:
 
 ```bash
 mysql-mcp-webui --generate-token
 ```
 
-This creates an authentication token. **Save it securely** - you'll need it for Claude Desktop.
+This will output something like:
+```
+✓ API Token generated successfully!
 
-#### 2. Configure Claude Desktop
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  mcp_abc123def456ghi789jkl012mno345pqr678stu901vwx234yz
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Add this to your Claude Desktop config file:
+⚠️  IMPORTANT: Save this token securely!
+   This token will NOT be shown again.
+```
+
+**Copy this token** - you'll need it in the next step.
+
+#### Step 2: Configure Claude Desktop
+
+Add this configuration to your Claude Desktop config file:
+
+**Config file location:**
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
+**Configuration:**
 ```json
 {
   "mcpServers": {
@@ -53,26 +72,66 @@ Add this to your Claude Desktop config file:
       "args": ["-y", "mysql-mcp-webui"],
       "env": {
         "TRANSPORT": "stdio",
-        "AUTH_TOKEN": "your-api-key-here"
+        "AUTH_TOKEN": "paste-your-token-here"
       }
     }
   }
 }
 ```
 
-Replace `your-api-key-here` with the token from step 1.
+**Replace** `paste-your-token-here` with the token from Step 1.
 
-#### 3. Configure Your MySQL Connections
+> **Note:** If you installed globally with `npm install -g`, you can also use `"command": "mysql-mcp-webui"` without the `args` field.
 
-Open the Web UI at http://localhost:9274 (starts automatically when Claude Desktop launches the MCP server):
+#### Step 3: Start Claude Desktop
 
-1. **Login** with default credentials: `admin` / `admin` (you'll be prompted to change this)
-2. **Add a MySQL connection** with your database credentials
-3. **Test the connection** to verify it works
-4. **Discover databases** to auto-detect all available databases
-5. **Set permissions** for each database (SELECT, INSERT, UPDATE, etc.)
+1. **Save** the config file
+2. **Restart Claude Desktop** completely (quit and reopen)
+3. Claude Desktop will automatically start the MCP server
+4. The **Web UI** will be available at **http://localhost:9274**
 
-**Restart Claude Desktop** to activate the MCP server.
+#### Step 4: Configure MySQL Connections
+
+Open the Web UI at **http://localhost:9274**:
+
+1. **Login** with default credentials: `admin` / `admin`
+   - You'll be prompted to change the password on first login
+2. **Add a MySQL connection**:
+   - Enter your MySQL server host, port, username, and password
+   - Click "Test Connection" to verify it works
+3. **Discover databases**:
+   - Click "Discover Databases" to auto-detect all available databases
+4. **Set permissions**:
+   - For each database, enable the operations Claude can perform
+   - Start with **SELECT only** for production databases
+5. **Set a default connection** (optional):
+   - Makes it easier to start new Claude Desktop instances
+
+#### Step 5: Start Using Claude
+
+You're all set! Now you can ask Claude to query your databases:
+
+```
+You: "Show me the top 10 users by registration date"
+Claude: [Uses mysql_query tool to fetch the data]
+```
+
+### Troubleshooting Setup
+
+**"AUTH_TOKEN is required" error:**
+- Make sure you ran `mysql-mcp-webui --generate-token` first
+- Verify the token is correctly pasted in the config file (no extra spaces or quotes)
+- Check that the config file is valid JSON
+
+**Claude Desktop doesn't see the MCP server:**
+- Verify the config file location is correct for your OS
+- Restart Claude Desktop completely (quit and reopen, don't just reload)
+- Check for syntax errors in the JSON (use a JSON validator)
+
+**Web UI not accessible:**
+- The server only starts when Claude Desktop launches it
+- Check if port 9274 is already in use: `lsof -i :9274` (macOS/Linux)
+- Try a different port by adding `"HTTP_PORT": "3001"` to the `env` section
 
 ## The Three MCP Tools
 
@@ -316,12 +375,31 @@ Set a default connection in Web UI so all new instances start with the same setu
 
 ## Troubleshooting
 
+### MCP server fails to start with AUTH_TOKEN error
+
+**Symptom:** Claude Desktop logs show "AUTH_TOKEN environment variable is required" or "Invalid AUTH_TOKEN provided"
+
+**Solution:**
+1. **Generate a new token** (if you haven't already):
+   ```bash
+   mysql-mcp-webui --generate-token
+   ```
+2. **Copy the generated token** from the output
+3. **Update your Claude Desktop config** file with the new token:
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+4. **Verify the JSON syntax** is correct (no extra spaces, quotes, or commas)
+5. **Restart Claude Desktop** completely (quit and reopen)
+
+**Note:** You must generate the token *before* starting Claude Desktop, not after.
+
 ### Claude can't connect to MCP server
 
 1. Check Claude Desktop config file syntax (valid JSON)
-2. Verify API key is correct: `mysql-mcp-webui --generate-token`
-3. Restart Claude Desktop completely
-4. Check Web UI is accessible at http://localhost:9274
+2. Generate a new API key if needed: `mysql-mcp-webui --generate-token`
+3. Verify the token is correctly pasted in the config file
+4. Restart Claude Desktop completely (quit and reopen, not just reload)
+5. Check Web UI is accessible at http://localhost:9274
 
 ### Permission denied errors
 

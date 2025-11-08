@@ -80,7 +80,7 @@ export function loadEnvironment(): EnvironmentConfig {
   // Rate limiting configuration
   const rateLimitEnabled = process.env.RATE_LIMIT_ENABLED !== 'false'; // enabled by default
   const rateLimitWindowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10); // 15 minutes
-  const rateLimitMaxRequests = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10);
+  const rateLimitMaxRequests = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000', 10);
 
   if (isNaN(rateLimitWindowMs) || rateLimitWindowMs < 1000) {
     throw new Error(`Invalid RATE_LIMIT_WINDOW_MS value: ${process.env.RATE_LIMIT_WINDOW_MS}. Must be at least 1000ms`);
@@ -90,12 +90,8 @@ export function loadEnvironment(): EnvironmentConfig {
     throw new Error(`Invalid RATE_LIMIT_MAX_REQUESTS value: ${process.env.RATE_LIMIT_MAX_REQUESTS}. Must be at least 1`);
   }
 
-  // Authentication token (required for stdio mode)
+  // Authentication token (optional for stdio mode - will validate at runtime)
   const authToken = process.env.AUTH_TOKEN;
-
-  if (transport === 'stdio' && !authToken) {
-    throw new Error('AUTH_TOKEN environment variable is required for stdio mode');
-  }
 
   // JWT configuration (required for user authentication in HTTP mode only)
   // Default development secret (32+ characters) - NOT FOR PRODUCTION

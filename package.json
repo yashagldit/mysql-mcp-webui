@@ -1,6 +1,6 @@
 {
   "name": "mysql-mcp-webui",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "MySQL MCP server with React-based web UI for live configuration management",
   "workspaces": [
     "server",

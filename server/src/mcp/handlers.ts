@@ -20,6 +20,8 @@ export class McpHandlers {
   private currentApiKeyId: string | null = null;
   private currentSessionId: string | null = null;
   private transportMode: 'stdio' | 'http' = 'stdio';
+  private isAuthenticated: boolean = true; // Default to true for HTTP mode
+  private authErrorType: string | null = null;
 
   /**
    * Set the current API key ID for logging
@@ -29,11 +31,103 @@ export class McpHandlers {
   }
 
   /**
+   * Set authentication state (for stdio mode)
+   */
+  setAuthenticationState(isValid: boolean, errorType: string | null): void {
+    this.isAuthenticated = isValid;
+    this.authErrorType = errorType;
+  }
+
+  /**
    * Set the current session ID and transport mode
    */
   setSession(sessionId: string | null, mode: 'stdio' | 'http'): void {
     this.currentSessionId = sessionId;
     this.transportMode = mode;
+  }
+
+  /**
+   * Get authentication setup error message
+   */
+  private getAuthSetupMessage(): string {
+    const errorPrefix = this.authErrorType === 'Missing AUTH_TOKEN'
+      ? '🔒 **Authentication Required: Missing AUTH_TOKEN**'
+      : '🔒 **Authentication Failed: Invalid AUTH_TOKEN**';
+
+    return `${errorPrefix}
+
+To use MySQL MCP WebUI with Claude Desktop, you need to set up authentication:
+
+**STEP 1: Generate an API Token**
+
+Run this command in your terminal:
+\`\`\`bash
+mysql-mcp-webui --generate-token
+\`\`\`
+
+This will output a token like:
+\`\`\`
+mcp_abc123def456ghi789jkl012mno345pqr678stu901vwx234yz
+\`\`\`
+
+**STEP 2: Update Claude Desktop Configuration**
+
+Add the token to your Claude Desktop config file:
+
+**macOS:** ~/Library/Application Support/Claude/claude_desktop_config.json
+**Windows:** %APPDATA%\\Claude\\claude_desktop_config.json
+
+\`\`\`json
+{
+  "mcpServers": {
+    "mysql": {
+      "command": "npx",
+      "args": ["-y", "mysql-mcp-webui"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "AUTH_TOKEN": "paste-your-token-here"
+      }
+    }
+  }
+}
+\`\`\`
+
+**STEP 3: Restart Claude Desktop**
+
+1. Save the config file
+2. Completely quit and restart Claude Desktop
+3. The Web UI will be available at http://localhost:9274
+
+**STEP 4: Configure MySQL Connection**
+
+Open http://localhost:9274 in your browser to:
+- Login (default: admin/admin)
+- Add your MySQL connection details
+- Set database permissions
+- Test the connection
+
+Once configured, you'll be able to query your databases through Claude!
+
+---
+*Need help? Visit: https://github.com/yashagldit/mysql-mcp-webui*`;
+  }
+
+  /**
+   * Check if authenticated and return error result if not
+   */
+  private checkAuthentication(): CallToolResult | null {
+    if (!this.isAuthenticated) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: this.getAuthSetupMessage(),
+          },
+        ],
+        isError: true,
+      };
+    }
+    return null;
   }
 
   /**
@@ -99,6 +193,12 @@ export class McpHandlers {
     const startTime = Date.now();
 
     try {
+      // Check authentication first
+      const authError = this.checkAuthentication();
+      if (authError) {
+        return authError;
+      }
+
       let result: CallToolResult;
 
       switch (name) {

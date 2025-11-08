@@ -55,12 +55,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check if user is authenticated on mount
     const checkAuth = async () => {
       try {
-        // Try to get current user (will use cookie if it exists)
+        // Try to get current user (will use JWT cookie if it exists)
         await refreshUser();
       } catch (error) {
-        // Not authenticated
-        setIsAuthenticated(false);
-        setUser(null);
+        // If JWT auth failed, check if there's a stored API token
+        const storedToken = apiClient.getAuthToken();
+        if (storedToken) {
+          // User is authenticated with API token
+          setIsAuthenticated(true);
+          setUser(null);
+        } else {
+          // Not authenticated
+          setIsAuthenticated(false);
+          setUser(null);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -86,6 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         } else {
           // API token login - no user object, just verification
+          // Store the token for subsequent requests
+          if (credentials.token) {
+            apiClient.setAuthToken(credentials.token);
+          }
           setIsAuthenticated(true);
           setUser(null);
           return { success: true };
@@ -111,6 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       // Ignore logout errors
     } finally {
+      // Clear stored API token
+      apiClient.setAuthToken(null);
       setUser(null);
       setIsAuthenticated(false);
     }

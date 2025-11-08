@@ -147,10 +147,9 @@ async function main() {
       // Stdio mode - MCP + Web UI
       console.error('Running in stdio mode (MCP + Web UI)');
 
-      // Start MCP server in stdio mode
+      // Start MCP server in stdio mode (validates AUTH_TOKEN but starts anyway)
       const mcpServer = getMcpServer();
       await mcpServer.startStdio();
-      console.error('MCP server started successfully');
 
       // Also start HTTP server for Web UI (no HTTPS in stdio mode for Web UI)
       const app = createHttpServer(config);

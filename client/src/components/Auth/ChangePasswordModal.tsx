@@ -54,7 +54,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
         setError(response.data.error || 'Failed to change password');
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to change password. Please try again.';
+      // Check if there are validation error details
+      const details = err.response?.data?.details;
+      let errorMessage = err.response?.data?.error || 'Failed to change password. Please try again.';
+
+      // Extract the first validation error message if available
+      if (details && Array.isArray(details) && details.length > 0) {
+        errorMessage = details[0].message || errorMessage;
+      }
+
       setError(errorMessage);
     } finally {
       setLoading(false);

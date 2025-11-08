@@ -77,21 +77,29 @@ export class McpServer {
     // Verify AUTH_TOKEN environment variable
     const authToken = process.env.AUTH_TOKEN;
 
+    let authenticationValid = false;
+    let authErrorMessage: string | null = null;
+
     if (!authToken) {
-      throw new Error('AUTH_TOKEN environment variable is required for stdio mode');
+      authErrorMessage = 'Missing AUTH_TOKEN';
+      console.error('⚠️  Warning: AUTH_TOKEN not provided. MCP tools will return setup instructions.');
+    } else {
+      const authResult = this.verifyToken(authToken);
+      if (!authResult.valid) {
+        authErrorMessage = 'Invalid AUTH_TOKEN';
+        console.error('⚠️  Warning: AUTH_TOKEN is invalid. MCP tools will return setup instructions.');
+      } else {
+        authenticationValid = true;
+        // Set API key ID for logging
+        if (authResult.apiKeyId) {
+          this.handlers.setApiKeyId(authResult.apiKeyId);
+        }
+        console.error('✓ AUTH_TOKEN validated successfully');
+      }
     }
 
-    const authResult = this.verifyToken(authToken);
-    if (!authResult.valid) {
-      throw new Error('Invalid AUTH_TOKEN provided');
-    }
-
-    // Set API key ID for logging
-    if (authResult.apiKeyId) {
-      this.handlers.setApiKeyId(authResult.apiKeyId);
-    }
-
-    // Set session info for stdio mode (no session ID, uses process-level state)
+    // Set authentication state and session info for stdio mode
+    this.handlers.setAuthenticationState(authenticationValid, authErrorMessage);
     this.handlers.setSession(null, 'stdio');
 
     const transport = new StdioServerTransport();
