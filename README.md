@@ -2,11 +2,28 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
-[![npm version](https://img.shields.io/badge/npm-v0.0.7-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
+[![npm version](https://img.shields.io/badge/npm-v0.0.9-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
 
 **Give Claude AI direct access to your MySQL databases through the Model Context Protocol (MCP).**
 
 MySQL MCP Server enables Claude Desktop and Claude Code to execute SQL queries, explore databases, and interact with your MySQL data - all through a secure, permission-controlled interface.
+
+## Table of Contents
+
+- [What is MCP?](#what-is-mcp)
+- [Quick Start](#quick-start)
+- [Setup Guide for Claude Desktop](#setup-guide-for-claude-desktop)
+- [Setup Guide for Claude Code (HTTP Mode)](#setup-guide-for-claude-code-http-mode)
+- [The Three MCP Tools](#the-three-mcp-tools)
+- [How It Works](#how-it-works)
+- [Permission System](#permission-system)
+- [Use Cases](#use-cases)
+- [Configuration Options](#configuration-options)
+- [Web UI Features](#web-ui-features)
+- [Security](#security)
+- [Multi-Instance Support](#multi-instance-support)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Usage](#advanced-usage)
 
 ## What is MCP?
 
@@ -133,6 +150,189 @@ Claude: [Uses mysql_query tool to fetch the data]
 - Check if port 9274 is already in use: `lsof -i :9274` (macOS/Linux)
 - Try a different port by adding `"HTTP_PORT": "3001"` to the `env` section
 
+## Setup Guide for Claude Code (HTTP Mode)
+
+Claude Code can connect to MySQL MCP Server via HTTP mode, allowing remote access and multiple concurrent sessions.
+
+### Option 1: Using npx (No Docker)
+
+#### Step 1: Start the Server
+
+```bash
+# Start in HTTP mode on default port 9274
+TRANSPORT=http npx -y mysql-mcp-webui
+
+# Or on a custom port
+TRANSPORT=http HTTP_PORT=3001 npx -y mysql-mcp-webui
+```
+
+#### Step 2: Generate API Token
+
+Open the Web UI at `http://localhost:9274` (or your custom port):
+1. Login with default credentials: `admin` / `admin`
+2. Navigate to **API Keys** section
+3. Click **Generate New API Key**
+4. Copy the generated key
+
+#### Step 3: Configure Claude Code
+
+Add this to your Claude Code MCP settings (`.claude/mcp_settings.json` or via UI):
+
+```json
+{
+  "mcpServers": {
+    "mysql": {
+      "type": "http",
+      "url": "http://localhost:9274/mcp",
+      "headers": {
+        "Authorization": "Bearer your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+**For remote/production deployment**, use your domain:
+
+```json
+{
+  "mcpServers": {
+    "mysql": {
+      "type": "http",
+      "url": "https://yourdomain.com/mcp",
+      "headers": {
+        "Authorization": "Bearer your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+### Option 2: Using Docker (Recommended for Production)
+
+#### Step 1: Deploy with Docker
+
+**Quick Start (No cloning needed):**
+```bash
+# Run directly from npm-based Docker image
+docker run -d \
+  --name mysql-mcp \
+  -p 9274:9274 \
+  -v mysql-mcp-data:/app/data \
+  -e TRANSPORT=http \
+  -e NODE_ENV=production \
+  mysql-mcp-webui
+
+# Or build and run locally
+docker build -t mysql-mcp-webui https://github.com/yashagldit/mysql-mcp-webui.git
+docker run -d \
+  --name mysql-mcp \
+  -p 9274:9274 \
+  -v mysql-mcp-data:/app/data \
+  -e TRANSPORT=http \
+  -e NODE_ENV=production \
+  mysql-mcp-webui
+```
+
+**Using docker-compose (for advanced configuration):**
+```bash
+# Clone only if you need custom docker-compose.yml
+git clone https://github.com/yashagldit/mysql-mcp-webui.git
+cd mysql-mcp-webui
+cp .env.example .env
+# Edit .env if needed (change ports, enable HTTPS, etc.)
+docker-compose up -d
+```
+
+#### Step 2: Get API Key
+
+```bash
+# Access Web UI at http://localhost:9274
+# Login: admin / admin
+# Navigate to API Keys → Generate New API Key
+```
+
+#### Step 3: Configure Claude Code
+
+```json
+{
+  "mcpServers": {
+    "mysql": {
+      "type": "http",
+      "url": "http://localhost:9274/mcp",
+      "headers": {
+        "Authorization": "Bearer your-docker-api-key-here"
+      }
+    }
+  }
+}
+```
+
+### Step 4: Configure MySQL Connections
+
+Same as Claude Desktop setup - use the Web UI to:
+1. Add MySQL connections
+2. Discover databases
+3. Set permissions
+4. Optionally set a default connection
+
+### Docker Deployment Options
+
+**Basic HTTP Mode:**
+```bash
+docker run -d \
+  --name mysql-mcp \
+  -p 9274:9274 \
+  -v mysql-mcp-data:/app/data \
+  mysql-mcp-webui
+```
+
+**Custom Port:**
+```bash
+docker run -d \
+  --name mysql-mcp \
+  -p 3001:3001 \
+  -v mysql-mcp-data:/app/data \
+  -e HTTP_PORT=3001 \
+  mysql-mcp-webui
+```
+
+**With HTTPS (Production):**
+```bash
+docker run -d \
+  --name mysql-mcp \
+  -p 443:9274 \
+  -v mysql-mcp-data:/app/data \
+  -v /etc/letsencrypt:/app/certs:ro \
+  -e ENABLE_HTTPS=true \
+  -e SSL_CERT_PATH=/app/certs/live/yourdomain.com/fullchain.pem \
+  -e SSL_KEY_PATH=/app/certs/live/yourdomain.com/privkey.pem \
+  mysql-mcp-webui
+```
+
+**Using docker-compose.yml:**
+
+The repository includes a ready-to-use `docker-compose.yml`:
+
+```yaml
+services:
+  mysql-mcp:
+    image: mysql-mcp-webui
+    ports:
+      - "9274:9274"
+    volumes:
+      - mysql-mcp-data:/app/data
+    environment:
+      - TRANSPORT=http
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  mysql-mcp-data:
+```
+
+For detailed production deployment with HTTPS, rate limiting, and security hardening, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## The Three MCP Tools
 
 Once configured, Claude can use three powerful tools to interact with your MySQL databases:
@@ -215,7 +415,7 @@ You can now query data and make modifications in staging_db
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  You: "Show me users who signed up this month"     │
+│  You: "Show me users who signed up this month"      │
 └──────────────────┬──────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────┐
@@ -226,7 +426,7 @@ You can now query data and make modifications in staging_db
 └──────────────────┬──────────────────────────────────┘
                    │ MCP Protocol
 ┌──────────────────▼──────────────────────────────────┐
-│  MySQL MCP Server                                    │
+│  MySQL MCP Server                                   │
 │  1. Validates API token                             │
 │  2. Checks database permissions                     │
 │  3. Parses SQL to verify allowed operations         │
@@ -297,34 +497,67 @@ Claude: Queries orders table, analyzes the data, and identifies the issue
 **stdio Mode** (Default for Claude Desktop):
 ```json
 {
-  "TRANSPORT": "stdio",
-  "AUTH_TOKEN": "your-api-key"
+  "mcpServers": {
+    "mysql": {
+      "command": "npx",
+      "args": ["-y", "mysql-mcp-webui"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "AUTH_TOKEN": "your-api-key",
+        "HTTP_PORT": "9274"
+      }
+    }
+  }
 }
 ```
-- MCP communication via stdin/stdout
-- Automatic lifecycle management by Claude
-- Web UI runs on separate HTTP port (9274)
+- MCP communication via stdin/stdout (managed by Claude Desktop)
+- Web UI runs on separate HTTP port (default: 9274, customizable)
+- Each Claude Desktop instance spawns its own process
+- Perfect for local development and desktop use
+
+**Custom port in stdio mode:**
+```json
+{
+  "env": {
+    "TRANSPORT": "stdio",
+    "AUTH_TOKEN": "your-api-key",
+    "HTTP_PORT": "3001"
+  }
+}
+```
 
 **HTTP Mode** (For Claude Code and remote access):
 ```bash
-# Start server in HTTP mode
+# Start server in HTTP mode (default port 9274)
 TRANSPORT=http mysql-mcp-webui
 
-# Claude Code connects to:
-# http://localhost:9274/mcp
+# Custom port
+TRANSPORT=http HTTP_PORT=3001 mysql-mcp-webui
+
+# MCP endpoint available at:
+# http://localhost:9274/mcp (or your custom port)
 ```
-- MCP communication via HTTP endpoint
-- Supports multiple concurrent sessions
-- Includes REST API and Web UI
+- MCP communication via HTTP endpoint at `/mcp`
+- Supports multiple concurrent sessions with isolation
+- Includes REST API and Web UI on same port
+- Perfect for remote access, Docker deployment, and Claude Code
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TRANSPORT` | `http` | Transport mode: `stdio` or `http` |
-| `HTTP_PORT` | `9274` | Web UI and API port |
+| `HTTP_PORT` | `9274` | Port for Web UI, API, and MCP endpoint (customizable in both modes) |
 | `AUTH_TOKEN` | - | API key (required for stdio mode) |
 | `NODE_ENV` | `development` | Environment: `development` or `production` |
+| `ENABLE_HTTPS` | `false` | Enable HTTPS/TLS |
+| `SSL_CERT_PATH` | - | Path to SSL certificate (required if HTTPS enabled) |
+| `SSL_KEY_PATH` | - | Path to SSL private key (required if HTTPS enabled) |
+| `JWT_SECRET` | (auto-generated) | Secret for JWT tokens (optional in development, recommended for production) |
+| `JWT_EXPIRES_IN` | `7d` | JWT token expiration (e.g., 1h, 24h, 7d, 30d) |
+| `RATE_LIMIT_ENABLED` | `true` | Enable rate limiting |
+| `RATE_LIMIT_WINDOW_MS` | `900000` | Rate limit window in milliseconds (15 minutes) |
+| `RATE_LIMIT_MAX_REQUESTS` | `100` | Maximum requests per window |
 
 ## Web UI Features
 
