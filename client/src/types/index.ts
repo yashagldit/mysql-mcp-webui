@@ -196,6 +196,7 @@ export interface Settings {
   httpPort: number;
   nodeVersion: string;
   mcpEnabled: boolean;
+  inactivityTimeoutMs: number;
 }
 
 export interface ActiveState {

@@ -1,10 +1,12 @@
 import { Router, type Request, type Response } from 'express';
 import { getDatabaseManager } from '../../db/database-manager.js';
+import { loadEnvironment } from '../../config/environment.js';
 import type { ActiveState, HealthStatus } from '../../types/index.js';
 
 const router = Router();
 const dbManager = getDatabaseManager();
 const serverStartTime = Date.now();
+const envConfig = loadEnvironment();
 
 /**
  * GET /api/settings
@@ -21,6 +23,7 @@ router.get('/settings', async (req: Request, res: Response) => {
       httpPort: parseInt(httpPort),
       nodeVersion: process.version,
       mcpEnabled,
+      inactivityTimeoutMs: envConfig.inactivityTimeoutMs,
     };
 
     res.json({

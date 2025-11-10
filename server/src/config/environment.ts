@@ -34,6 +34,9 @@ export interface EnvironmentConfig {
   // JWT Authentication (for user login)
   jwtSecret: string;
   jwtExpiresIn: string;
+
+  // Inactivity timeout (for auto logout)
+  inactivityTimeoutMs: number;
 }
 
 /**
@@ -127,6 +130,13 @@ export function loadEnvironment(): EnvironmentConfig {
     throw new Error('JWT_SECRET must be at least 32 characters long for security');
   }
 
+  // Inactivity timeout configuration (30 minutes default)
+  const inactivityTimeoutMs = parseInt(process.env.INACTIVITY_TIMEOUT_MS || '1800000', 10);
+
+  if (isNaN(inactivityTimeoutMs) || inactivityTimeoutMs < 60000) {
+    throw new Error(`Invalid INACTIVITY_TIMEOUT_MS value: ${process.env.INACTIVITY_TIMEOUT_MS}. Must be at least 60000ms (1 minute)`);
+  }
+
   // Cache the config to prevent regenerating JWT secret on subsequent calls
   cachedConfig = {
     transport,
@@ -141,6 +151,7 @@ export function loadEnvironment(): EnvironmentConfig {
     authToken,
     jwtSecret,
     jwtExpiresIn,
+    inactivityTimeoutMs,
   };
 
   return cachedConfig;
@@ -177,6 +188,7 @@ export function getConfigSummary(config: EnvironmentConfig): string {
   lines.push(`JWT Enabled: Yes`);
   lines.push(`JWT Secret: ***${config.jwtSecret.slice(-4)}`);
   lines.push(`JWT Expires In: ${config.jwtExpiresIn}`);
+  lines.push(`Inactivity Timeout: ${config.inactivityTimeoutMs}ms (${config.inactivityTimeoutMs / 1000 / 60} minutes)`);
   lines.push('='.repeat(50));
 
   return lines.join('\n');
