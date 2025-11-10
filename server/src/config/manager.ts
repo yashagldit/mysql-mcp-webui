@@ -156,6 +156,7 @@ export class ConfigManager {
       user: request.user,
       password: JSON.stringify(encryptedPassword),
       isActive: Object.keys(this.config.connections).length === 0, // First connection is active
+      isEnabled: true,
       databases,
       activeDatabase: autoDiscover[0], // First database is active
     };

@@ -85,3 +85,29 @@ export const useDiscoverDatabases = () => {
     },
   });
 };
+
+export const useEnableConnection = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.enableConnection(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
+      queryClient.invalidateQueries({ queryKey: ['databases', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['activeState'] });
+    },
+  });
+};
+
+export const useDisableConnection = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.disableConnection(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
+      queryClient.invalidateQueries({ queryKey: ['databases', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['activeState'] });
+    },
+  });
+};

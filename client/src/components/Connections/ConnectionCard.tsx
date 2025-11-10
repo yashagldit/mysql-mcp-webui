@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Server, Check, Trash2, Edit, Play, RefreshCw } from 'lucide-react';
+import { Server, Trash2, Edit, Play, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { Card, Badge, Button, Alert } from '../Common';
 import { EditConnectionModal } from './EditConnectionModal';
 import {
-  useActivateConnection,
   useDeleteConnection,
   useTestConnection,
   useDiscoverDatabases,
+  useEnableConnection,
+  useDisableConnection,
 } from '../../hooks/useConnections';
 import type { ConnectionWithDetails } from '../../types';
 
@@ -18,18 +19,11 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const activateMutation = useActivateConnection();
   const deleteMutation = useDeleteConnection();
   const testMutation = useTestConnection();
   const discoverMutation = useDiscoverDatabases();
-
-  const handleActivate = async () => {
-    try {
-      await activateMutation.mutateAsync(connection.id);
-    } catch (error) {
-      console.error('Failed to activate connection:', error);
-    }
-  };
+  const enableMutation = useEnableConnection();
+  const disableMutation = useDisableConnection();
 
   const handleTest = async () => {
     try {
@@ -56,13 +50,25 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
     }
   };
 
+  const handleToggleEnabled = async () => {
+    try {
+      if (connection.isEnabled) {
+        await disableMutation.mutateAsync(connection.id);
+      } else {
+        await enableMutation.mutateAsync(connection.id);
+      }
+    } catch (error) {
+      console.error('Failed to toggle connection enabled state:', error);
+    }
+  };
+
   return (
     <>
-      <Card hoverable className="relative">
-        {connection.isActive && (
+      <Card hoverable className={`relative ${!connection.isEnabled ? 'opacity-60' : ''}`}>
+        {!connection.isEnabled && (
           <div className="absolute top-4 right-4">
-            <Badge variant="success" size="sm">
-              Active
+            <Badge variant="danger" size="sm">
+              Disabled
             </Badge>
           </div>
         )}
@@ -108,49 +114,39 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
           </Alert>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          {!connection.isActive && (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button
               size="sm"
-              variant="primary"
-              onClick={handleActivate}
-              loading={activateMutation.isPending}
+              variant="secondary"
+              onClick={handleTest}
+              loading={testMutation.isPending}
+              disabled={!connection.isEnabled}
               fullWidth
             >
-              <Check className="w-4 h-4 mr-1" />
-              Activate
+              <Play className="w-4 h-4 mr-1" />
+              Test
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleTest}
-            loading={testMutation.isPending}
-            fullWidth
-          >
-            <Play className="w-4 h-4 mr-1" />
-            Test
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleDiscover}
-            loading={discoverMutation.isPending}
-            fullWidth
-          >
-            <RefreshCw className="w-4 h-4 mr-1" />
-            Discover
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowEditModal(true)}
-            fullWidth
-          >
-            <Edit className="w-4 h-4 mr-1" />
-            Edit
-          </Button>
-          {!connection.isActive && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleDiscover}
+              loading={discoverMutation.isPending}
+              disabled={!connection.isEnabled}
+              fullWidth
+            >
+              <RefreshCw className="w-4 h-4 mr-1" />
+              Discover
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowEditModal(true)}
+              fullWidth
+            >
+              <Edit className="w-4 h-4 mr-1" />
+              Edit
+            </Button>
             <Button
               size="sm"
               variant="danger"
@@ -161,7 +157,26 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
               <Trash2 className="w-4 h-4 mr-1" />
               Delete
             </Button>
-          )}
+          </div>
+          <Button
+            size="sm"
+            variant={connection.isEnabled ? 'danger' : 'primary'}
+            onClick={handleToggleEnabled}
+            loading={enableMutation.isPending || disableMutation.isPending}
+            fullWidth
+          >
+            {connection.isEnabled ? (
+              <>
+                <EyeOff className="w-4 h-4 mr-1" />
+                Disable Connection
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4 mr-1" />
+                Enable Connection
+              </>
+            )}
+          </Button>
         </div>
       </Card>
 

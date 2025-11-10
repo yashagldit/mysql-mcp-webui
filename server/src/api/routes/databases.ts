@@ -13,6 +13,26 @@ const connectionManager = getConnectionManager();
 const databaseDiscovery = getDatabaseDiscovery();
 
 /**
+ * GET /api/databases
+ * Get all databases across all connections with their aliases and status
+ */
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const databases = dbManager.getAllDatabasesWithStatus();
+
+    res.json({
+      success: true,
+      data: databases,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * GET /api/connections/:id/databases
  * List databases for a connection
  */
@@ -131,12 +151,15 @@ router.post('/:connId/databases/:dbName/activate', async (req: Request, res: Res
       return;
     }
 
+    // Get the database alias for v4.0 alias-based switching
+    const alias = connection.databases[dbName].alias || dbName;
+
     // Switch the database in SQLite (persistent storage)
     dbManager.switchDatabase(connId, dbName);
 
-    // Update in-memory state in ConnectionManager
-    connectionManager.setActiveConnectionId(connId);
-    connectionManager.setActiveDatabase(connId, dbName);
+    // Update in-memory state in ConnectionManager (v4.0 alias-based)
+    await connectionManager.activateDatabase(alias);
+    connectionManager.setCurrentDatabase(alias);
 
     // Also set this connection as the default so /api/active returns the correct state
     // This ensures the UI reflects the database switch immediately

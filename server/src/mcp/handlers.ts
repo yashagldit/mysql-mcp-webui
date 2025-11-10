@@ -411,7 +411,12 @@ Once configured, you'll be able to query your databases through Claude!
       const grouped: Record<string, any[]> = {};
 
       for (const db of allDatabases) {
-        if (!db.isEnabled) continue; // Skip disabled databases
+        // Skip disabled databases
+        if (!db.isEnabled) continue;
+
+        // Skip databases from disabled connections
+        const connection = this.dbManager.getConnection(db.connectionId);
+        if (!connection || !connection.isEnabled) continue;
 
         if (!grouped[db.connectionName]) {
           grouped[db.connectionName] = [];
@@ -517,6 +522,20 @@ Once configured, you'll be able to query your databases through Claude!
             {
               type: 'text',
               text: `Error: Database '${alias}' is disabled and not accessible via MCP`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Check if connection is enabled
+      const connection = this.dbManager.getConnection(dbContext.connectionId);
+      if (!connection || !connection.isEnabled) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Connection for database '${alias}' is disabled and not accessible via MCP`,
             },
           ],
           isError: true,

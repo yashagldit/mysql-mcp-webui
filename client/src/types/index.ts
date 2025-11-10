@@ -6,6 +6,7 @@ export interface Connection {
   port: number;
   user: string;
   isActive: boolean;
+  isEnabled: boolean;
   created_at: number;
 }
 

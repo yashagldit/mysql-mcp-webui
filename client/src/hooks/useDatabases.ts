@@ -10,6 +10,13 @@ export const useDatabases = (connectionId: string) => {
   });
 };
 
+export const useAllDatabases = () => {
+  return useQuery({
+    queryKey: ['databases', 'all'],
+    queryFn: () => apiClient.getAllDatabases(),
+  });
+};
+
 export const useActivateDatabase = () => {
   const queryClient = useQueryClient();
 
@@ -18,6 +25,7 @@ export const useActivateDatabase = () => {
       apiClient.activateDatabase(connectionId, dbName),
     onSuccess: (_, { connectionId }) => {
       queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['databases', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['activeState'] });
     },
   });
@@ -38,6 +46,7 @@ export const useUpdatePermissions = () => {
     }) => apiClient.updatePermissions(connectionId, dbName, permissions),
     onSuccess: (_, { connectionId }) => {
       queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['databases', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['activeState'] });
     },
   });
@@ -51,6 +60,7 @@ export const useEnableDatabase = () => {
       apiClient.enableDatabase(connectionId, dbName),
     onSuccess: (_, { connectionId }) => {
       queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['databases', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['activeState'] });
     },
   });
@@ -64,6 +74,7 @@ export const useDisableDatabase = () => {
       apiClient.disableDatabase(connectionId, dbName),
     onSuccess: (_, { connectionId }) => {
       queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['databases', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['activeState'] });
     },
   });
@@ -77,6 +88,7 @@ export const useUpdateAlias = () => {
       apiClient.updateDatabaseAlias(connectionId, dbName, { newAlias }),
     onSuccess: (_, { connectionId }) => {
       queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['databases', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['activeState'] });
       queryClient.invalidateQueries({ queryKey: ['connections'] });
     },

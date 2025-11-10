@@ -34,6 +34,7 @@ router.get('/', async (req: Request, res: Response) => {
         port: conn.port,
         user: conn.user,
         isActive: conn.isActive,
+        isEnabled: conn.isEnabled,
         databaseCount: Object.keys(conn.databases).length,
         activeDatabase: conn.activeDatabase,
       });
@@ -77,6 +78,7 @@ router.post('/', async (req: Request, res: Response) => {
         ...request,
         password: '', // Will be filled by testConnection
         isActive: false,
+        isEnabled: true,
         databases: {},
       },
       request.password
@@ -191,6 +193,79 @@ router.delete('/:id', async (req: Request, res: Response) => {
       success: true,
       data: {
         message: 'Connection deleted successfully',
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * PUT /api/connections/:id/enable
+ * Enable a connection (make it accessible via MCP and UI)
+ */
+router.put('/:id/enable', async (req: Request, res: Response) => {
+  try {
+    const connection = dbManager.getConnection(req.params.id);
+
+    if (!connection) {
+      res.status(404).json({
+        success: false,
+        error: 'Connection not found',
+      });
+      return;
+    }
+
+    dbManager.enableConnection(req.params.id);
+
+    res.json({
+      success: true,
+      data: {
+        message: `Connection '${connection.name}' enabled successfully`,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * PUT /api/connections/:id/disable
+ * Disable a connection (hide it from MCP and UI)
+ * Cascades to disable all databases under this connection
+ * If this is the active/default connection, automatically switches to next enabled connection
+ */
+router.put('/:id/disable', async (req: Request, res: Response) => {
+  try {
+    const connection = dbManager.getConnection(req.params.id);
+
+    if (!connection) {
+      res.status(404).json({
+        success: false,
+        error: 'Connection not found',
+      });
+      return;
+    }
+
+    const result = dbManager.disableConnection(req.params.id);
+
+    let message = `Connection '${connection.name}' disabled successfully`;
+    if (result.switchedTo) {
+      const newActiveConn = dbManager.getConnection(result.switchedTo);
+      message += `. Automatically switched to '${newActiveConn?.name || result.switchedTo}'`;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        message,
+        switchedTo: result.switchedTo,
       },
     });
   } catch (error) {

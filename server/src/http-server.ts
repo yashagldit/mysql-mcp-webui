@@ -85,7 +85,8 @@ export function createHttpServer(config: EnvironmentConfig): Express {
 
   // API routes (all require authentication - no localhost bypass)
   app.use('/api/connections', smartAuthMiddleware, connectionsRouter);
-  app.use('/api/connections', smartAuthMiddleware, databasesRouter);
+  app.use('/api/databases', smartAuthMiddleware, databasesRouter); // Unified databases endpoint
+  app.use('/api/connections', smartAuthMiddleware, databasesRouter); // Per-connection database endpoints
   app.use('/api/query', smartAuthMiddleware, queryRouter);
   app.use('/api/browse', smartAuthMiddleware, browseRouter);
   app.use('/api', smartAuthMiddleware, settingsRouter);

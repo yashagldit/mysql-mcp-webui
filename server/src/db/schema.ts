@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS connections (
   user TEXT NOT NULL,
   password TEXT NOT NULL,
   is_active INTEGER DEFAULT 0,
+  is_enabled INTEGER DEFAULT 1,
   created_at INTEGER NOT NULL
 );
 
@@ -100,13 +101,32 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_databases_unique_name ON databases(connect
 CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_user_id ON request_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
--- Note: idx_databases_is_enabled, idx_databases_unique_alias, and idx_databases_last_accessed are created by migration after adding their respective columns
+-- Note: idx_connections_is_enabled, idx_databases_is_enabled, idx_databases_unique_alias, and idx_databases_last_accessed are created by migration after adding their respective columns
 `;
 
 /**
  * Run database migrations
  */
 function runMigrations(db: Database.Database): void {
+  // Check if is_enabled column exists in connections table
+  const connectionsTableInfo = db.pragma('table_info(connections)') as Array<{ name: string }>;
+  const connectionsHasIsEnabled = connectionsTableInfo.some((col) => col.name === 'is_enabled');
+
+  if (!connectionsHasIsEnabled) {
+    // Add is_enabled column to existing connections table
+    db.exec('ALTER TABLE connections ADD COLUMN is_enabled INTEGER DEFAULT 1');
+    // Create index for the new column
+    db.exec('CREATE INDEX IF NOT EXISTS idx_connections_is_enabled ON connections(is_enabled)');
+    console.log('Migration: Added is_enabled column to connections table');
+  }
+
+  // Always ensure existing connections with NULL are set to enabled (backward compatibility)
+  const updateConnsStmt = db.prepare('UPDATE connections SET is_enabled = 1 WHERE is_enabled IS NULL');
+  const connResult = updateConnsStmt.run();
+  if (connResult.changes > 0) {
+    console.log(`Migration: Enabled ${connResult.changes} existing connection(s) that had NULL is_enabled`);
+  }
+
   // Check if is_enabled column exists in databases table
   const tableInfo = db.pragma('table_info(databases)') as Array<{ name: string }>;
   const hasIsEnabled = tableInfo.some((col) => col.name === 'is_enabled');

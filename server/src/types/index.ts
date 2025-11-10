@@ -85,6 +85,7 @@ export interface ConnectionConfig {
   user: string;
   password: string; // JSON stringified EncryptedData
   isActive: boolean;
+  isEnabled: boolean;
   databases: Record<string, DatabaseConfig>;
   activeDatabase?: string;
 }
@@ -97,6 +98,7 @@ export const ConnectionConfigSchema = z.object({
   user: z.string(),
   password: z.string(), // Will be validated as JSON string of EncryptedData
   isActive: z.boolean(),
+  isEnabled: z.boolean(),
   databases: z.record(z.string(), DatabaseConfigSchema),
   activeDatabase: z.string().optional(),
 });
@@ -214,6 +216,7 @@ export interface ConnectionListItem {
   port: number;
   user: string;
   isActive: boolean;
+  isEnabled: boolean;
   databaseCount: number;
   activeDatabase?: string;
 }

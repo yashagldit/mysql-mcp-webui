@@ -579,7 +579,7 @@ export class DatabaseManager {
    */
   getAllConnections(): ConnectionConfig[] {
     const stmt = this.db.prepare(`
-      SELECT id, name, host, port, user, password, is_active, created_at
+      SELECT id, name, host, port, user, password, is_active, is_enabled, created_at
       FROM connections
       ORDER BY created_at DESC
     `);
@@ -596,9 +596,11 @@ export class DatabaseManager {
         user: row.user,
         password: row.password,
         isActive: Boolean(row.is_active),
+        isEnabled: row.is_enabled === null ? true : Boolean(row.is_enabled), // Treat NULL as enabled for backward compatibility
         databases: databases.reduce((acc, db) => {
           acc[db.name] = {
             name: db.name,
+            alias: db.alias,
             permissions: this.dbRowToPermissions(db),
             // Treat NULL as enabled for backward compatibility
             isEnabled: db.is_enabled === null ? true : Boolean(db.is_enabled),
@@ -615,7 +617,7 @@ export class DatabaseManager {
    */
   getConnection(id: string): ConnectionConfig | null {
     const stmt = this.db.prepare(`
-      SELECT id, name, host, port, user, password, is_active, created_at
+      SELECT id, name, host, port, user, password, is_active, is_enabled, created_at
       FROM connections
       WHERE id = ?
     `);
@@ -634,9 +636,11 @@ export class DatabaseManager {
       user: row.user,
       password: row.password,
       isActive: Boolean(row.is_active),
+      isEnabled: row.is_enabled === null ? true : Boolean(row.is_enabled), // Treat NULL as enabled for backward compatibility
       databases: databases.reduce((acc, db) => {
         acc[db.name] = {
           name: db.name,
+          alias: db.alias,
           permissions: this.dbRowToPermissions(db),
           // Treat NULL as enabled for backward compatibility
           isEnabled: db.is_enabled === null ? true : Boolean(db.is_enabled),
@@ -763,6 +767,89 @@ export class DatabaseManager {
     return decryptPassword(encryptedData, masterKey);
   }
 
+  /**
+   * Enable a connection (make it accessible via MCP and UI)
+   */
+  enableConnection(id: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE connections
+        SET is_enabled = 1
+        WHERE id = ?
+      `);
+
+      stmt.run(id);
+    });
+  }
+
+  /**
+   * Disable a connection (hide it from MCP and prevent activation)
+   * Also cascades to disable all databases under this connection
+   * If this is the active/default connection, automatically switches to next enabled connection
+   */
+  disableConnection(id: string): { switchedTo: string | null } {
+    return this.executeWithRetry(() => {
+      const connection = this.getConnection(id);
+      if (!connection) {
+        throw new Error(`Connection ${id} not found`);
+      }
+
+      let switchedTo: string | null = null;
+
+      // Check if this is the active or default connection
+      const isDefault = this.getDefaultConnectionId() === id;
+      const isActive = connection.isActive;
+
+      if (isDefault || isActive) {
+        // Find next enabled connection (excluding the one we're disabling)
+        const nextConnStmt = this.db.prepare(`
+          SELECT id FROM connections
+          WHERE is_enabled = 1 AND id != ?
+          ORDER BY created_at ASC
+          LIMIT 1
+        `);
+        const nextConn = nextConnStmt.get(id) as { id: string } | undefined;
+
+        if (nextConn) {
+          // Auto-switch to next enabled connection
+          this.setSetting('defaultConnection', nextConn.id);
+          this.setActiveConnection(nextConn.id);
+          switchedTo = nextConn.id;
+          console.log(`Auto-switched from ${connection.name} to connection ${nextConn.id}`);
+        } else {
+          // No other enabled connections available - just clear the default
+          this.deleteSetting('defaultConnection');
+          console.warn(`No other enabled connections available after disabling ${connection.name}`);
+        }
+      }
+
+      // Cascade: Disable all databases for this connection
+      const disableDbsStmt = this.db.prepare(`
+        UPDATE databases
+        SET is_enabled = 0, is_active = 0
+        WHERE connection_id = ?
+      `);
+      disableDbsStmt.run(id);
+
+      // Disable the connection and deactivate it
+      const stmt = this.db.prepare(`
+        UPDATE connections
+        SET is_enabled = 0, is_active = 0
+        WHERE id = ?
+      `);
+      stmt.run(id);
+
+      return { switchedTo };
+    });
+  }
+
+  /**
+   * Get all enabled connections
+   */
+  getEnabledConnections(): ConnectionConfig[] {
+    return this.getAllConnections().filter((conn) => conn.isEnabled);
+  }
+
   // ============================================================================
   // Database Management
   // ============================================================================
@@ -773,14 +860,23 @@ export class DatabaseManager {
   addDatabases(connectionId: string, databaseNames: string[], setFirstActive: boolean = false): string[] {
     const added: string[] = [];
 
+    // Get existing database names for this connection
+    const existingDbsStmt = this.db.prepare('SELECT name FROM databases WHERE connection_id = ?');
+    const existingDbs = new Set<string>(
+      (existingDbsStmt.all(connectionId) as Array<{ name: string }>).map((row) => row.name)
+    );
+
     // Get existing aliases to ensure uniqueness
     const existingAliases = new Set<string>();
     const aliasStmt = this.db.prepare('SELECT alias FROM databases WHERE alias IS NOT NULL');
     const existingRows = aliasStmt.all() as Array<{ alias: string }>;
     existingRows.forEach((row) => existingAliases.add(row.alias.toLowerCase()));
 
-    for (let i = 0; i < databaseNames.length; i++) {
-      const dbName = databaseNames[i];
+    // Filter out databases that already exist for this connection
+    const newDatabases = databaseNames.filter((dbName) => !existingDbs.has(dbName));
+
+    for (let i = 0; i < newDatabases.length; i++) {
+      const dbName = newDatabases[i];
       const id = `db_${generateToken(12)}`;
       const is_active = setFirstActive && i === 0 ? 1 : 0;
 
@@ -807,7 +903,7 @@ export class DatabaseManager {
         });
         added.push(dbName);
       } catch (error) {
-        // Database might already exist
+        // Unexpected error (shouldn't happen since we filtered existing databases)
         console.error(`Failed to add database ${dbName}:`, error);
       }
     }

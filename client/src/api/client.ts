@@ -144,9 +144,34 @@ class ApiClient {
     return data.data;
   }
 
+  async enableConnection(id: string): Promise<{ message: string }> {
+    const { data } = await this.client.put<ApiResponse<{ message: string }>>(`/connections/${id}/enable`);
+    return data.data;
+  }
+
+  async disableConnection(id: string): Promise<{ message: string; switchedTo: string | null }> {
+    const { data } = await this.client.put<ApiResponse<{ message: string; switchedTo: string | null }>>(`/connections/${id}/disable`);
+    return data.data;
+  }
+
   // Database endpoints
   async getDatabases(connectionId: string): Promise<Database[]> {
     const { data } = await this.client.get<ApiResponse<Database[]>>(`/connections/${connectionId}/databases`);
+    return data.data;
+  }
+
+  async getAllDatabases(): Promise<Array<{
+    connectionId: string;
+    connectionName: string;
+    database: string;
+    alias: string;
+    isActive: boolean;
+    isCurrent: boolean;
+    isEnabled: boolean;
+    permissions: any;
+    lastAccessed: number;
+  }>> {
+    const { data } = await this.client.get<ApiResponse<any>>('/databases');
     return data.data;
   }
 
