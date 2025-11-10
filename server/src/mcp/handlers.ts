@@ -10,6 +10,9 @@ import { getDatabaseDiscovery } from '../db/discovery.js';
 import { getConnectionManager } from '../db/connection-manager.js';
 import { getSessionManager } from './session-manager.js';
 import { sanitizeForLogging } from '../utils/sanitize.js';
+import { getMasterKey } from '../config/master-key.js';
+import { AddConnectionRequestSchema } from '../types/index.js';
+import type { AddConnectionRequest } from '../types/index.js';
 
 export class McpHandlers {
   private queryExecutor = getQueryExecutor();
@@ -244,6 +247,10 @@ Once configured, you'll be able to query your databases through Claude!
 
         case 'switch_database':
           result = await this.handleSwitchDatabase(args);
+          break;
+
+        case 'add_connection':
+          result = await this.handleAddConnection(args);
           break;
 
         default:
@@ -571,6 +578,91 @@ Once configured, you'll be able to query your databases through Claude!
           {
             type: 'text',
             text: `Failed to switch database: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  /**
+   * Handle add_connection tool call
+   */
+  private async handleAddConnection(args: unknown): Promise<CallToolResult> {
+    // Validate parameters
+    const validation = AddConnectionRequestSchema.safeParse(args);
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => `  - ${e.path.join('.')}: ${e.message}`).join('\n');
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: Invalid parameters\n\n${errors}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const request = validation.data as AddConnectionRequest;
+
+    try {
+      // Test connection first before saving
+      const testResult = await this.connectionManager.testConnection(
+        {
+          id: 'test',
+          name: request.name,
+          host: request.host,
+          port: request.port,
+          user: request.user,
+          password: '', // Empty password in config
+          isActive: false,
+          isEnabled: true,
+          databases: {},
+        },
+        request.password // Actual password passed separately
+      );
+
+      // Get master key for encryption
+      const masterKey = getMasterKey();
+
+      // Add connection with discovered databases
+      const connectionId = this.dbManager.addConnection(
+        request,
+        masterKey,
+        testResult.databases
+      );
+
+      // Format success response
+      const lines = [
+        `✅ Successfully added connection '${request.name}'`,
+        '',
+        `Connection ID: ${connectionId}`,
+        `Host: ${request.host}:${request.port}`,
+        `User: ${request.user}`,
+        '',
+        `Discovered ${testResult.databases.length} database(s):`,
+        ...testResult.databases.map(db => `  • ${db}`),
+        '',
+        'All databases have been added with default SELECT permissions.',
+        '',
+        '💡 Use list_databases to see all available databases with their aliases.',
+      ];
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: lines.join('\n'),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Failed to add connection: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,

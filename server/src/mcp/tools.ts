@@ -100,8 +100,53 @@ Use the database alias (not the actual database name) to specify which database 
 };
 
 /**
+ * MCP Tool: add_connection
+ * Add a new MySQL connection
+ */
+export const addConnectionTool: Tool = {
+  name: 'add_connection',
+  description: `Add a new MySQL connection to the server.
+
+This tool allows you to create a new MySQL connection with the provided credentials.
+The connection will be tested before being saved to ensure it's valid.
+
+The password will be encrypted at rest using AES-256-GCM encryption.
+
+After adding, databases will be automatically discovered from the MySQL server and added with default SELECT permissions.
+
+Returns the connection ID and list of discovered databases.`,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      name: {
+        type: 'string',
+        description: 'Display name for the connection (e.g., "Production DB", "Local MySQL")',
+      },
+      host: {
+        type: 'string',
+        description: 'MySQL host address (e.g., "localhost", "192.168.1.100", "mysql.example.com")',
+      },
+      port: {
+        type: 'number',
+        description: 'MySQL port number (default: 3306)',
+        default: 3306,
+      },
+      user: {
+        type: 'string',
+        description: 'MySQL username',
+      },
+      password: {
+        type: 'string',
+        description: 'MySQL password (will be encrypted at rest)',
+      },
+    },
+    required: ['name', 'host', 'port', 'user', 'password'],
+  },
+};
+
+/**
  * Get all MCP tools
  */
 export function getAllTools(): Tool[] {
-  return [mysqlQueryTool, listDatabasesTool, switchDatabaseTool];
+  return [mysqlQueryTool, listDatabasesTool, switchDatabaseTool, addConnectionTool];
 }
