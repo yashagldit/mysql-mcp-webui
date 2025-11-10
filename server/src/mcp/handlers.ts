@@ -103,6 +103,15 @@ Add the token to your Claude Desktop config file:
 
 **STEP 4: Configure MySQL Connection**
 
+You can add your MySQL connection in two ways:
+
+**Option A: Use the add_connection tool (Recommended)**
+Once authenticated, you can use the add_connection tool directly in this conversation:
+- Provide your MySQL host, port, user, and password
+- Connection will be tested and databases auto-discovered
+- Start querying immediately
+
+**Option B: Use the Web UI**
 Open http://localhost:9274 in your browser to:
 - Login (default: admin/admin)
 - Add your MySQL connection details
@@ -403,7 +412,17 @@ Once configured, you'll be able to query your databases through Claude!
           content: [
             {
               type: 'text',
-              text: 'No databases configured. Please visit http://localhost:9274 to add a MySQL connection and discover databases.',
+              text: `No databases configured.
+
+You can add a MySQL connection in two ways:
+
+1️⃣ Use the add_connection tool directly:
+   Call add_connection with your MySQL credentials to add a new connection programmatically.
+
+2️⃣ Use the Web UI:
+   Visit http://localhost:9274 to add a MySQL connection through the web interface.
+
+Once a connection is added, databases will be automatically discovered and available for querying.`,
             },
           ],
         };

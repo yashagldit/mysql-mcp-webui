@@ -314,7 +314,7 @@ export class ConnectionManager {
    */
   async getActivePool(): Promise<{ pool: Pool; connectionId: string; database: string }> {
     if (!this.currentDatabaseAlias) {
-      throw new Error('No current database set. Please visit http://localhost:9274 to configure.');
+      throw new Error('No current database set. Use the add_connection tool to add a MySQL connection, or visit http://localhost:9274 to configure.');
     }
 
     const result = await this.getPoolForDatabase(this.currentDatabaseAlias);

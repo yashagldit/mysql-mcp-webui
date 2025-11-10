@@ -43,7 +43,7 @@ export class QueryExecutor {
     }
 
     if (!connectionId) {
-      throw new Error('No active connection configured. Please visit http://localhost:9274 to add a database connection.');
+      throw new Error('No active connection configured. Use the add_connection tool to add a MySQL connection, or visit http://localhost:9274 to configure via the web interface.');
     }
 
     if (!database) {
