@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
-[![npm version](https://img.shields.io/badge/npm-v0.0.7-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
+[![npm version](https://img.shields.io/badge/npm-v0.1.0-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
 
 A MySQL MCP (Model Context Protocol) server with a React-based web UI for live configuration management. Enable Claude AI to interact with your MySQL databases through a secure, intuitive interface.
 
@@ -27,14 +27,17 @@ A MySQL MCP (Model Context Protocol) server with a React-based web UI for live c
 - **Dual Authentication System**: Username/password login for WebUI or API token authentication for programmatic access
 - **User Management**: Create and manage multiple users with secure password hashing (bcrypt)
 - **Multi-Instance Support**: Run multiple Claude Desktop instances or HTTP sessions simultaneously with isolated state
-- **MCP Tools**: Three powerful tools for Claude to interact with your MySQL databases (query, list_databases, switch_database)
+- **MCP Tools**: Four powerful tools for Claude to interact with your MySQL databases (query, list_databases, switch_database, add_connection)
 - **Dual Transport Support**: Works with both stdio (Claude Desktop) and HTTP (Claude Code) transports
+- **Database Aliasing**: Create custom, user-friendly aliases for databases (v0.1.0)
+- **Connection Management**: Enable/disable connections to control which are active (v0.1.0)
 
 ### Web UI Capabilities
 - **Database Browser**: Browse tables, view structure, explore data with pagination, and view indexes - all through an intuitive web interface
 - **Query Editor**: Execute SQL queries with syntax highlighting via Monaco Editor
-- **Connection Management**: Add, test, and manage multiple MySQL server connections
-- **Database Management**: Enable/disable databases, configure permissions, and switch active databases
+- **Connection Management**: Add, test, and manage multiple MySQL server connections with enable/disable controls
+- **Database Management**: Enable/disable databases, configure permissions, manage custom aliases, and switch active databases
+- **Alias Management**: Edit database aliases with validation and uniqueness checks (v0.1.0)
 - **Dark Mode**: Comprehensive dark mode support with device preference detection
 - **Request Logging**: View detailed logs of API requests, MCP tool calls, and query history
 - **API Key Management**: Create and manage multiple API keys with usage tracking
@@ -215,7 +218,7 @@ List all available databases with their permissions and metadata.
 
 ### 3. `switch_database`
 
-Switch to a different database in the active connection.
+Switch to a different database in the active connection (supports database aliases).
 
 ```json
 {
@@ -225,6 +228,30 @@ Switch to a different database in the active connection.
   }
 }
 ```
+
+### 4. `add_connection` (v0.1.0)
+
+Create a new MySQL connection programmatically with validation and auto-discovery.
+
+```json
+{
+  "name": "add_connection",
+  "arguments": {
+    "name": "Local MySQL",
+    "host": "localhost",
+    "port": 3306,
+    "user": "root",
+    "password": "mypassword"
+  }
+}
+```
+
+**Features:**
+- Validates connection by testing credentials before saving
+- Encrypts password with AES-256-GCM
+- Auto-discovers all available databases
+- Adds discovered databases with default SELECT permission
+- Returns connection details and discovery results
 
 ## REST API Endpoints
 
@@ -256,6 +283,8 @@ Switch to a different database in the active connection.
 - `GET /api/connections/default` - Get current default connection
 - `POST /api/connections/:id/activate` - Switch to connection (deprecated, use set-default)
 - `POST /api/connections/:id/discover` - Discover databases
+- `POST /api/connections/:id/enable` - Enable connection (v0.1.0)
+- `POST /api/connections/:id/disable` - Disable connection (v0.1.0)
 
 ### Databases
 
@@ -264,6 +293,7 @@ Switch to a different database in the active connection.
 - `PUT /api/connections/:connId/databases/:dbName/permissions` - Update permissions
 - `PUT /api/connections/:connId/databases/:dbName/enable` - Enable database
 - `PUT /api/connections/:connId/databases/:dbName/disable` - Disable database
+- `POST /api/databases/:alias/update-alias` - Update database alias (v0.1.0)
 
 ### Queries
 
@@ -366,8 +396,8 @@ Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 
 - **Users**: User accounts for WebUI authentication with hashed passwords
 - **API Keys**: Multiple authentication keys for programmatic access and MCP
-- **Connections**: MySQL server connection details (encrypted passwords)
-- **Databases**: Per-database permissions and metadata
+- **Connections**: MySQL server connection details (encrypted passwords, enabled status) ✨ Updated in v0.1.0
+- **Databases**: Per-database permissions, custom aliases, and metadata ✨ Updated in v0.1.0
 - **Request Logs**: API and MCP request/response history
 - **Settings**: Server configuration (transport mode, port, etc.)
 
@@ -451,8 +481,8 @@ MySQL MCP WebUI has undergone comprehensive security auditing and hardening (v0.
 │  │  SQLite DB (WAL mode + retries)  │        │
 │  │  - Users (hashed passwords)       │        │
 │  │  - API Keys                       │        │
-│  │  - Connections (encrypted)        │        │
-│  │  - Databases & Permissions        │        │
+│  │  - Connections (encrypted,enabled)│        │
+│  │  - Databases (aliases,permissions)│        │
 │  │  - Request Logs                   │        │
 │  └───────────────────────────────────┘        │
 └───────────────────┼──────────────────────────┘
@@ -520,13 +550,16 @@ npm run build
 ## Roadmap
 
 ### Current Features ✅
-- Full MCP server implementation with three powerful tools
+- Full MCP server implementation with four powerful tools
+- **`add_connection` MCP tool for programmatic connection creation** ✨ NEW (v0.1.0)
+- **Database aliasing system with custom user-friendly names** ✨ NEW (v0.1.0)
+- **Connection enable/disable controls** ✨ NEW (v0.1.0)
 - Complete REST API for connection and database management
 - React-based web UI for configuration management
-- **Database browser with table exploration, structure viewer, and pagination** ✨ NEW
-- **Dark mode support with device preference detection** ✨ NEW
-- **Database enable/disable functionality** ✨ NEW
-- **Comprehensive security hardening (CRITICAL/HIGH vulnerabilities fixed)** ✨ NEW
+- Database browser with table exploration, structure viewer, and pagination (v0.0.6)
+- Dark mode support with device preference detection (v0.0.6)
+- Database enable/disable functionality (v0.0.6)
+- Comprehensive security hardening (CRITICAL/HIGH vulnerabilities fixed) (v0.0.6)
 - Dual authentication system (JWT for WebUI + API keys for MCP)
 - Multi-user support with secure password management
 - Request/response logging with user tracking

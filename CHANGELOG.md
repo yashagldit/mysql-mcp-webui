@@ -14,6 +14,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual query builder
 - Database schema diagram visualization
 
+## [0.1.0] - 2025-01-11
+
+### Added
+
+#### New MCP Tool: add_connection
+- **`add_connection` tool** - Claude can now create MySQL connections programmatically
+- Validates connection by testing credentials before saving
+- Auto-discovers databases after successful connection
+- Password encryption with AES-256-GCM for secure storage
+- Full validation with detailed error messages
+- Enhanced error messages guide users to use `add_connection` when no connections exist
+
+#### Database Aliasing System
+- **Custom database aliases** - Create user-friendly names for databases
+- Alias validation with specific criteria (3-50 characters, alphanumeric, underscores, hyphens)
+- Edit alias modal in Web UI for easy alias management
+- Automatic unique alias generation for existing databases during migration
+- MCP tools support database switching via aliases
+- Database selection and queries use aliases throughout the system
+- Enhanced schema with `alias` and `last_accessed` columns
+- SQL query support for explicit database aliasing
+
+#### Connection Management
+- **Connection enable/disable** - Control which connections are active
+- Visual indicators in UI for enabled/disabled connections
+- MCP tools respect connection enabled state (prevents queries to disabled connections)
+- Endpoints for toggling connection status:
+  - `POST /api/connections/:id/enable` - Enable a connection
+  - `POST /api/connections/:id/disable` - Disable a connection
+- Enhanced schema with `enabled` column for connections
+- Cascading behavior: disabling connection disables all its databases
+
+#### API Endpoints
+- `POST /api/databases/:alias/update-alias` - Update database alias
+- `POST /api/connections/:id/enable` - Enable MySQL connection
+- `POST /api/connections/:id/disable` - Disable MySQL connection
+
+### Changed
+- MCP handlers now use database aliases for activation and switching
+- QueryExecutor updated to support explicit database aliasing in SQL queries
+- Session management tracks active databases by alias
+- Improved error handling when no connections are configured
+- Enhanced table browser with alias support
+- Database cards display both alias and actual database name
+- Improved DatabaseList with connection grouping and status indicators
+
+### Technical Details
+- **Alias Validator** utility ensures aliases meet specified criteria
+- Migration logic automatically generates unique aliases for existing databases
+- Type definitions updated to include alias-related properties
+- Tools schema updated to reflect `add_connection` tool signature
+- Enhanced connection manager with enable/disable support
+- Database manager implements alias uniqueness validation
+
 ## [0.0.7] - 2025-01-07
 
 ### Changed
@@ -386,6 +440,7 @@ The `TRANSPORT` environment variable supports:
 
 ## Version History Summary
 
+- **v0.1.0** (2025-01-11) - Database aliasing, connection management, add_connection tool
 - **v0.0.7** (2025-01-07) - Documentation overhaul, user-focused README, MCP workflow examples
 - **v0.0.6** (2025-01-07) - Database browser, dark mode, security hardening, port change to 9274
 - **v0.0.5** (2025-01-06) - User authentication, JWT tokens, multi-user support

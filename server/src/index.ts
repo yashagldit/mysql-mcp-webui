@@ -27,7 +27,7 @@ function showHelp() {
 
     console.log(`
 MySQL MCP WebUI - MySQL Database MCP Server with Web UI
-Version: 0.0.7
+Version: 0.1.0
 
 USAGE:
   mysql-mcp-webui [OPTIONS]
@@ -107,7 +107,7 @@ async function main() {
     }
 
     if (args.includes('--version') || args.includes('-v')) {
-      console.log('mysql-mcp-webui version 0.0.7');
+      console.log('mysql-mcp-webui version 0.1.0');
       process.exit(0);
     }
 

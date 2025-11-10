@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
-[![npm version](https://img.shields.io/badge/npm-v0.0.9-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
+[![npm version](https://img.shields.io/badge/npm-v0.1.0-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
 
 **Give Claude AI direct access to your MySQL databases through the Model Context Protocol (MCP).**
 
@@ -14,7 +14,7 @@ MySQL MCP Server enables Claude Desktop and Claude Code to execute SQL queries, 
 - [Quick Start](#quick-start)
 - [Setup Guide for Claude Desktop](#setup-guide-for-claude-desktop)
 - [Setup Guide for Claude Code (HTTP Mode)](#setup-guide-for-claude-code-http-mode)
-- [The Three MCP Tools](#the-three-mcp-tools)
+- [The Four MCP Tools](#the-four-mcp-tools)
 - [How It Works](#how-it-works)
 - [Permission System](#permission-system)
 - [Use Cases](#use-cases)
@@ -333,9 +333,9 @@ volumes:
 
 For detailed production deployment with HTTPS, rate limiting, and security hardening, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-## The Three MCP Tools
+## The Four MCP Tools
 
-Once configured, Claude can use three powerful tools to interact with your MySQL databases:
+Once configured, Claude can use four powerful tools to interact with your MySQL databases:
 
 ### 1. `mysql_query` - Execute SQL Queries
 
@@ -391,7 +391,7 @@ Response:
 
 ### 3. `switch_database` - Change Active Database
 
-Claude can switch between databases within your MySQL connection.
+Claude can switch between databases within your MySQL connection using database aliases.
 
 **Example conversation:**
 ```
@@ -410,6 +410,37 @@ You can now query data and make modifications in staging_db
 2. Switches active database for all future queries
 3. Returns new database's permissions
 4. Persists the change (survives restarts)
+
+### 4. `add_connection` - Create New MySQL Connections
+
+Claude can add new MySQL database connections programmatically without using the Web UI.
+
+**Example conversation:**
+```
+You: "Add a connection to my MySQL server at localhost using root with password 'mypass'"
+
+Claude uses: add_connection
+Arguments: {
+  name: "Local MySQL",
+  host: "localhost",
+  port: 3306,
+  user: "root",
+  password: "mypass"
+}
+
+Response: ✓ Connection created successfully!
+Connection ID: 1
+Name: Local MySQL
+Databases discovered: 5 databases found and added with SELECT permissions
+```
+
+**What happens:**
+1. Validates connection credentials by testing the connection
+2. Encrypts password with AES-256-GCM before storage
+3. Saves connection to the database
+4. Auto-discovers all available databases
+5. Adds discovered databases with default SELECT permission
+6. Returns connection details and discovery results
 
 ## How It Works
 
@@ -564,14 +595,19 @@ TRANSPORT=http HTTP_PORT=3001 mysql-mcp-webui
 Access the management interface at **http://localhost:9274**
 
 - **Dashboard** - Overview of connections and activity
-- **Connections** - Manage MySQL server connections
-- **Databases** - Configure permissions and enable/disable databases
+- **Connections** - Manage MySQL server connections with enable/disable controls
+- **Databases** - Configure permissions, enable/disable databases, and manage custom aliases
 - **Browser** - Explore tables, view data, check indexes
 - **Query Editor** - Test SQL queries with syntax highlighting
 - **API Keys** - Manage authentication tokens
 - **Users** - Multi-user access control
 - **Logs** - Audit trail of all MCP tool calls
 - **Dark Mode** - System preference detection
+
+### New in v0.1.0
+- **Database Aliases** - Create custom, user-friendly names for your databases
+- **Connection Controls** - Enable/disable connections to control which are active
+- **add_connection Tool** - Claude can now add MySQL connections programmatically
 
 ## Security
 
@@ -704,7 +740,16 @@ mysql-mcp-webui --generate-token
 mysql-mcp-webui --version
 ```
 
-## What's New in v0.0.7
+## What's New in v0.1.0
+
+- 🔧 **New MCP Tool: add_connection** - Claude can now create MySQL connections programmatically
+- 🏷️ **Database Aliasing** - Create custom, user-friendly names for databases
+- 🎛️ **Connection Management** - Enable/disable connections to control which are active
+- ✨ **Enhanced UI** - Database cards show aliases, connection cards show enabled status
+- 🔐 **Auto-Discovery** - New connections automatically discover and configure databases
+- 📝 **Improved UX** - Better error messages guide users when no connections exist
+
+### Previous Updates (v0.0.7)
 
 - 📖 **Enhanced Documentation** - New user-focused README with MCP workflow examples
 - 🔄 **Documentation Reorganization** - Technical details moved to README_DEVELOPMENT.md
