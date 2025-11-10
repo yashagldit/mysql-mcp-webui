@@ -42,6 +42,7 @@ router.get('/:id/databases', async (req: Request, res: Response) => {
             const metadata = await databaseDiscovery.getDatabaseMetadata(pool, dbName);
             databases.push({
               name: dbConfig.name,
+              alias: dbConfig.alias || dbConfig.name, // Use alias or fallback to name
               isActive: connection.activeDatabase === dbConfig.name,
               isEnabled: dbConfig.isEnabled,
               permissions: dbConfig.permissions,
@@ -52,6 +53,7 @@ router.get('/:id/databases', async (req: Request, res: Response) => {
             // If metadata fails, just include basic info
             databases.push({
               name: dbConfig.name,
+              alias: dbConfig.alias || dbConfig.name,
               isActive: connection.activeDatabase === dbConfig.name,
               isEnabled: dbConfig.isEnabled,
               permissions: dbConfig.permissions,
@@ -63,6 +65,7 @@ router.get('/:id/databases', async (req: Request, res: Response) => {
         for (const dbConfig of Object.values(connection.databases)) {
           databases.push({
             name: dbConfig.name,
+            alias: dbConfig.alias || dbConfig.name,
             isActive: connection.activeDatabase === dbConfig.name,
             isEnabled: dbConfig.isEnabled,
             permissions: dbConfig.permissions,
@@ -73,6 +76,7 @@ router.get('/:id/databases', async (req: Request, res: Response) => {
       for (const dbConfig of Object.values(connection.databases)) {
         databases.push({
           name: dbConfig.name,
+          alias: dbConfig.alias || dbConfig.name,
           isActive: connection.activeDatabase === dbConfig.name,
           isEnabled: dbConfig.isEnabled,
           permissions: dbConfig.permissions,

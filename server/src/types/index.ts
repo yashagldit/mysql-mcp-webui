@@ -43,14 +43,18 @@ export const defaultPermissions: Permissions = {
 
 export interface DatabaseConfig {
   name: string;
+  alias?: string;
   permissions: Permissions;
   isEnabled: boolean;
+  lastAccessed?: number;
 }
 
 export const DatabaseConfigSchema = z.object({
   name: z.string(),
+  alias: z.string().optional(),
   permissions: PermissionsSchema,
   isEnabled: z.boolean(),
+  lastAccessed: z.number().optional(),
 });
 
 // ============================================================================
@@ -169,6 +173,30 @@ export const ExecuteQueryRequestSchema = z.object({
   sql: z.string().min(1),
 });
 
+export interface UpdateAliasRequest {
+  newAlias: string;
+}
+
+export const UpdateAliasRequestSchema = z.object({
+  newAlias: z.string().min(1).max(64),
+});
+
+export interface ActivateDatabaseRequest {
+  alias: string;
+}
+
+export const ActivateDatabaseRequestSchema = z.object({
+  alias: z.string().min(1),
+});
+
+export interface SetCurrentDatabaseRequest {
+  alias: string;
+}
+
+export const SetCurrentDatabaseRequestSchema = z.object({
+  alias: z.string().min(1),
+});
+
 // ============================================================================
 // API Response Types
 // ============================================================================
@@ -204,11 +232,16 @@ export interface DiscoverDatabasesResult {
 
 export interface DatabaseListItem {
   name: string;
+  alias: string;
   isActive: boolean;
   isEnabled: boolean;
+  isCurrent?: boolean;
   permissions: Permissions;
   tableCount?: number;
   size?: string;
+  lastAccessed?: number;
+  connectionId?: string;
+  connectionName?: string;
 }
 
 export interface QueryResult {
@@ -222,6 +255,7 @@ export interface ActiveState {
   connectionId?: string;
   connectionName?: string;
   database?: string;
+  alias?: string;
   permissions?: Permissions;
 }
 

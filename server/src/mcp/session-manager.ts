@@ -1,21 +1,25 @@
 import { getDatabaseManager } from '../db/database-manager.js';
+import type { DatabaseContext } from '../db/connection-manager.js';
+import { loadEnvironment } from '../config/environment.js';
 
 interface Session {
   id: string;
-  activeConnectionId: string | null;
-  activeDatabases: Map<string, string>; // connectionId -> databaseName
+  activeConnections: Set<string>; // connectionIds
+  activeDatabases: Map<string, DatabaseContext>; // alias -> context
+  currentDatabaseAlias: string | null;
   lastAccessed: number;
 }
 
 /**
  * Session manager for HTTP mode
- * Tracks active connection and database per session
+ * Tracks active databases per session (v4.0 alias-based)
  */
 export class SessionManager {
   private sessions: Map<string, Session> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
   private readonly SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
   private readonly CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
+  private config = loadEnvironment();
 
   constructor() {
     // Start cleanup timer
@@ -29,22 +33,27 @@ export class SessionManager {
     let session = this.sessions.get(sessionId);
 
     if (!session) {
-      // Initialize session with default connection
+      // Initialize session with current database
       const dbManager = getDatabaseManager();
-      const defaultConnId = dbManager.getDefaultConnectionId();
+      const currentAlias = dbManager.getCurrentDatabaseAlias();
 
       session = {
         id: sessionId,
-        activeConnectionId: defaultConnId,
+        activeConnections: new Set(),
         activeDatabases: new Map(),
+        currentDatabaseAlias: currentAlias,
         lastAccessed: Date.now(),
       };
 
-      // Try to load active database for default connection
-      if (defaultConnId) {
-        const activeDb = dbManager.getActiveDatabase(defaultConnId);
-        if (activeDb) {
-          session.activeDatabases.set(defaultConnId, activeDb);
+      // Load current database if set
+      if (currentAlias) {
+        const dbContext = dbManager.getDatabaseByAlias(currentAlias);
+        if (dbContext) {
+          session.activeConnections.add(dbContext.connectionId);
+          session.activeDatabases.set(currentAlias, {
+            ...dbContext,
+            lastAccessed: Date.now(),
+          });
         }
       }
 
@@ -59,48 +68,217 @@ export class SessionManager {
   }
 
   /**
-   * Get active connection ID for a session
+   * Activate a database by alias for a session
    */
-  getActiveConnection(sessionId: string): string | null {
+  activateDatabase(sessionId: string, alias: string): void {
     const session = this.getOrCreateSession(sessionId);
-    return session.activeConnectionId;
+
+    // Check if already active
+    if (session.activeDatabases.has(alias)) {
+      // Update last accessed
+      const context = session.activeDatabases.get(alias)!;
+      context.lastAccessed = Date.now();
+      return;
+    }
+
+    // Get database context
+    const dbManager = getDatabaseManager();
+    const dbContext = dbManager.getDatabaseByAlias(alias);
+    if (!dbContext) {
+      throw new Error(`Database with alias '${alias}' not found`);
+    }
+
+    // Check if we need to evict databases (reached limit)
+    if (session.activeDatabases.size >= this.config.maxActiveDatabases) {
+      this.evictLRUDatabase(session);
+    }
+
+    // Add to active databases
+    const context: DatabaseContext = {
+      ...dbContext,
+      lastAccessed: Date.now(),
+    };
+    session.activeDatabases.set(alias, context);
+    session.activeConnections.add(dbContext.connectionId);
+
+    // Check if we need to evict connections (reached limit)
+    if (session.activeConnections.size > this.config.maxActiveConnections) {
+      this.evictUnusedConnections(session);
+    }
   }
 
   /**
-   * Set active connection ID for a session
+   * Deactivate a database by alias for a session
    */
-  setActiveConnection(sessionId: string, connectionId: string): void {
+  deactivateDatabase(sessionId: string, alias: string): void {
     const session = this.getOrCreateSession(sessionId);
-    session.activeConnectionId = connectionId;
+    const context = session.activeDatabases.get(alias);
 
-    // If there's no active database for this connection, try to set one
-    if (!session.activeDatabases.has(connectionId)) {
-      const dbManager = getDatabaseManager();
-      const activeDb = dbManager.getActiveDatabase(connectionId);
-      if (activeDb) {
-        session.activeDatabases.set(connectionId, activeDb);
+    if (!context) {
+      return; // Already inactive
+    }
+
+    // Remove from active databases
+    session.activeDatabases.delete(alias);
+
+    // Check if connection has no more active databases
+    const hasOtherDbs = Array.from(session.activeDatabases.values()).some(
+      (ctx) => ctx.connectionId === context.connectionId
+    );
+    if (!hasOtherDbs) {
+      session.activeConnections.delete(context.connectionId);
+    }
+
+    // If this was the current database, clear current
+    if (session.currentDatabaseAlias === alias) {
+      session.currentDatabaseAlias = null;
+    }
+  }
+
+  /**
+   * Set the current database for a session
+   */
+  setCurrentDatabase(sessionId: string, alias: string): void {
+    const session = this.getOrCreateSession(sessionId);
+    const dbManager = getDatabaseManager();
+    const context = dbManager.getDatabaseByAlias(alias);
+
+    if (!context) {
+      throw new Error(`Database with alias '${alias}' not found`);
+    }
+
+    session.currentDatabaseAlias = alias;
+  }
+
+  /**
+   * Get the current database for a session
+   */
+  getCurrentDatabase(sessionId: string): DatabaseContext | null {
+    const session = this.getOrCreateSession(sessionId);
+
+    if (!session.currentDatabaseAlias) {
+      return null;
+    }
+
+    return session.activeDatabases.get(session.currentDatabaseAlias) || null;
+  }
+
+  /**
+   * Get all active databases for a session
+   */
+  getActiveDatabases(sessionId: string): DatabaseContext[] {
+    const session = this.getOrCreateSession(sessionId);
+    return Array.from(session.activeDatabases.values());
+  }
+
+  /**
+   * Get all active connection IDs for a session
+   */
+  getActiveConnections(sessionId: string): Set<string> {
+    const session = this.getOrCreateSession(sessionId);
+    return new Set(session.activeConnections);
+  }
+
+  /**
+   * Update last accessed time for a database in a session
+   */
+  updateLastAccessed(sessionId: string, alias: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    const context = session.activeDatabases.get(alias);
+    if (context) {
+      context.lastAccessed = Date.now();
+    }
+  }
+
+  /**
+   * Evict the least recently used database from a session
+   */
+  private evictLRUDatabase(session: Session): void {
+    // Don't evict the current database
+    const candidates = Array.from(session.activeDatabases.entries())
+      .filter(([alias]) => alias !== session.currentDatabaseAlias);
+
+    if (candidates.length === 0) {
+      console.warn('Cannot evict databases: only current database is active');
+      return;
+    }
+
+    // Find LRU
+    const [lruAlias] = candidates.reduce((min, current) =>
+      current[1].lastAccessed < min[1].lastAccessed ? current : min
+    );
+
+    console.log(`Evicting LRU database from session ${session.id}: ${lruAlias}`);
+    const context = session.activeDatabases.get(lruAlias);
+    if (context) {
+      session.activeDatabases.delete(lruAlias);
+
+      // Check if connection has no more active databases
+      const hasOtherDbs = Array.from(session.activeDatabases.values()).some(
+        (ctx) => ctx.connectionId === context.connectionId
+      );
+      if (!hasOtherDbs) {
+        session.activeConnections.delete(context.connectionId);
       }
     }
   }
 
   /**
-   * Get active database for a connection in a session
+   * Evict connections that have no active databases from a session
    */
-  getActiveDatabase(sessionId: string, connectionId?: string): string | null {
-    const session = this.getOrCreateSession(sessionId);
-    const connId = connectionId || session.activeConnectionId;
+  private evictUnusedConnections(session: Session): void {
+    const unusedConnections: string[] = [];
 
-    if (!connId) return null;
+    for (const connectionId of session.activeConnections) {
+      const hasDatabases = Array.from(session.activeDatabases.values()).some(
+        (ctx) => ctx.connectionId === connectionId
+      );
 
-    return session.activeDatabases.get(connId) || null;
+      if (!hasDatabases) {
+        unusedConnections.push(connectionId);
+      }
+    }
+
+    for (const connectionId of unusedConnections) {
+      session.activeConnections.delete(connectionId);
+      console.log(`Evicted unused connection from session ${session.id}: ${connectionId}`);
+    }
+  }
+
+  // ============================================================================
+  // Legacy methods for backward compatibility (deprecated)
+  // ============================================================================
+
+  /**
+   * @deprecated Use getCurrentDatabase() instead
+   */
+  getActiveConnection(sessionId: string): string | null {
+    const current = this.getCurrentDatabase(sessionId);
+    return current?.connectionId || null;
   }
 
   /**
-   * Set active database for a connection in a session
+   * @deprecated Use setCurrentDatabase() instead
    */
-  setActiveDatabase(sessionId: string, connectionId: string, database: string): void {
-    const session = this.getOrCreateSession(sessionId);
-    session.activeDatabases.set(connectionId, database);
+  setActiveConnection(_sessionId: string, _connectionId: string): void {
+    console.warn('setActiveConnection is deprecated, use setCurrentDatabase with alias instead');
+  }
+
+  /**
+   * @deprecated Use getCurrentDatabase() instead
+   */
+  getActiveDatabase(sessionId: string, _connectionId?: string): string | null {
+    const current = this.getCurrentDatabase(sessionId);
+    return current?.database || null;
+  }
+
+  /**
+   * @deprecated Use setCurrentDatabase() and activateDatabase() instead
+   */
+  setActiveDatabase(_sessionId: string, _connectionId: string, _database: string): void {
+    console.warn('setActiveDatabase is deprecated, use setCurrentDatabase with alias instead');
   }
 
   /**
@@ -160,27 +338,6 @@ export class SessionManager {
    */
   getSessionCount(): number {
     return this.sessions.size;
-  }
-
-  /**
-   * Update active connection for all existing sessions
-   * Used when connection is switched globally via WebUI
-   */
-  setActiveConnectionForAllSessions(connectionId: string): void {
-    for (const session of this.sessions.values()) {
-      session.activeConnectionId = connectionId;
-
-      // Try to load active database for the new connection
-      if (!session.activeDatabases.has(connectionId)) {
-        const dbManager = getDatabaseManager();
-        const activeDb = dbManager.getActiveDatabase(connectionId);
-        if (activeDb) {
-          session.activeDatabases.set(connectionId, activeDb);
-        }
-      }
-    }
-
-    console.log(`Updated ${this.sessions.size} sessions to use connection: ${connectionId}`);
   }
 }
 

@@ -340,14 +340,8 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
     // Mark this connection as active in the database
     dbManager.setActiveConnection(req.params.id);
 
-    // Also activate for current session (HTTP mode)
-    connectionManager.setActiveConnectionId(req.params.id);
-    if (connection.activeDatabase) {
-      connectionManager.setActiveDatabase(req.params.id, connection.activeDatabase);
-    }
-
-    // Propagate to all active MCP sessions (HTTP mode)
-    sessionManager.setActiveConnectionForAllSessions(req.params.id);
+    // Note: In v4.0, we don't propagate to sessions since each session manages
+    // its own active databases independently via aliases
 
     res.json({
       success: true,
@@ -355,7 +349,7 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
         message: `Set ${connection.name} as default connection`,
         activeConnection: req.params.id,
         activeDatabase: connection.activeDatabase,
-        deprecated: 'This endpoint is deprecated. Use /set-default instead.',
+        deprecated: 'This endpoint is deprecated in v4.0. Sessions now manage databases independently via aliases.',
       },
     });
   } catch (error) {

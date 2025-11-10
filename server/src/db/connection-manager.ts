@@ -3,26 +3,39 @@ import type { Pool, PoolOptions } from 'mysql2/promise';
 import type { ConnectionConfig } from '../types/index.js';
 import { getDatabaseManager } from './database-manager.js';
 import { getMasterKey } from '../config/master-key.js';
+import { loadEnvironment } from '../config/environment.js';
+
+export interface DatabaseContext {
+  connectionId: string;
+  database: string;
+  alias: string;
+  connectionName: string;
+  lastAccessed: number;
+}
 
 export class ConnectionManager {
   private pools: Map<string, Pool> = new Map();
   private dbManager = getDatabaseManager();
   private masterKey = getMasterKey();
+  private config = loadEnvironment();
 
-  // In-memory active connection state (per process instance)
-  private activeConnectionId: string | null = null;
-  private activeDatabases: Map<string, string> = new Map(); // connectionId -> databaseName
+  // In-memory active state (per process instance) - v4.0 alias-based
+  private activeConnections: Set<string> = new Set(); // connectionIds
+  private activeDatabases: Map<string, DatabaseContext> = new Map(); // alias -> context
+  private currentDatabaseAlias: string | null = null;
 
   constructor() {
-    // Initialize active connection from default on startup
-    const defaultConnId = this.dbManager.getDefaultConnectionId();
-    if (defaultConnId) {
-      this.activeConnectionId = defaultConnId;
-
-      // Try to load the active database for this connection
-      const activeDb = this.dbManager.getActiveDatabase(defaultConnId);
-      if (activeDb) {
-        this.activeDatabases.set(defaultConnId, activeDb);
+    // Initialize from database on startup
+    const currentAlias = this.dbManager.getCurrentDatabaseAlias();
+    if (currentAlias) {
+      const dbContext = this.dbManager.getDatabaseByAlias(currentAlias);
+      if (dbContext) {
+        this.currentDatabaseAlias = currentAlias;
+        this.activeConnections.add(dbContext.connectionId);
+        this.activeDatabases.set(currentAlias, {
+          ...dbContext,
+          lastAccessed: Date.now(),
+        });
       }
     }
   }
@@ -79,80 +92,236 @@ export class ConnectionManager {
   }
 
   /**
-   * Get the currently active connection ID (in-memory state)
+   * Get pool for a specific database by alias
    */
-  getActiveConnectionId(): string | null {
-    return this.activeConnectionId;
-  }
-
-  /**
-   * Set the active connection ID (in-memory state only)
-   */
-  setActiveConnectionId(connectionId: string): void {
-    // Validate connection exists
-    const conn = this.dbManager.getConnection(connectionId);
-    if (!conn) {
-      throw new Error(`Connection ${connectionId} not found`);
+  async getPoolForDatabase(alias: string): Promise<{ pool: Pool; context: DatabaseContext }> {
+    const context = this.dbManager.getDatabaseByAlias(alias);
+    if (!context) {
+      throw new Error(`Database with alias '${alias}' not found`);
     }
 
-    this.activeConnectionId = connectionId;
-
-    // If there's no active database for this connection, try to set one
-    if (!this.activeDatabases.has(connectionId)) {
-      const dbConfig = this.dbManager.getActiveDatabase(connectionId);
-      if (dbConfig) {
-        this.activeDatabases.set(connectionId, dbConfig);
-      }
-    }
-  }
-
-  /**
-   * Get the active database for a connection (in-memory state)
-   */
-  getActiveDatabase(connectionId?: string): string | null {
-    const connId = connectionId || this.activeConnectionId;
-    if (!connId) return null;
-
-    return this.activeDatabases.get(connId) || null;
-  }
-
-  /**
-   * Set the active database for a connection (in-memory state only)
-   */
-  setActiveDatabase(connectionId: string, database: string): void {
-    // Validate connection and database exist
-    const conn = this.dbManager.getConnection(connectionId);
-    if (!conn) {
-      throw new Error(`Connection ${connectionId} not found`);
-    }
-
-    const dbConfig = this.dbManager.getDatabaseConfig(connectionId, database);
-    if (!dbConfig) {
-      throw new Error(`Database ${database} not found for connection ${connectionId}`);
-    }
-
-    this.activeDatabases.set(connectionId, database);
-  }
-
-  /**
-   * Get the pool for the currently active connection
-   */
-  async getActivePool(): Promise<{ pool: Pool; connectionId: string; database: string }> {
-    if (!this.activeConnectionId) {
-      throw new Error('No active connection configured. Please visit http://localhost:9274 to add a database connection.');
-    }
-
-    const database = this.getActiveDatabase(this.activeConnectionId);
-    if (!database) {
-      throw new Error('No active database selected');
-    }
-
-    const pool = await this.getPool(this.activeConnectionId);
+    const pool = await this.getPool(context.connectionId);
 
     return {
       pool,
-      connectionId: this.activeConnectionId,
-      database,
+      context: {
+        ...context,
+        lastAccessed: Date.now(),
+      },
+    };
+  }
+
+  /**
+   * Activate a database by alias (adds to active set)
+   */
+  async activateDatabase(alias: string): Promise<void> {
+    // Check if already active
+    if (this.activeDatabases.has(alias)) {
+      // Update last accessed
+      const context = this.activeDatabases.get(alias)!;
+      context.lastAccessed = Date.now();
+      this.dbManager.updateLastAccessed(alias);
+      return;
+    }
+
+    // Get database context
+    const dbContext = this.dbManager.getDatabaseByAlias(alias);
+    if (!dbContext) {
+      throw new Error(`Database with alias '${alias}' not found`);
+    }
+
+    // Check if we need to evict databases (reached limit)
+    if (this.activeDatabases.size >= this.config.maxActiveDatabases) {
+      this.evictLRUDatabase();
+    }
+
+    // Add to active databases
+    const context: DatabaseContext = {
+      ...dbContext,
+      lastAccessed: Date.now(),
+    };
+    this.activeDatabases.set(alias, context);
+    this.activeConnections.add(dbContext.connectionId);
+
+    // Update database as active in DB
+    this.dbManager.setDatabaseActive(alias, true);
+
+    // Check if we need to evict connections (reached limit)
+    if (this.activeConnections.size > this.config.maxActiveConnections) {
+      await this.evictUnusedConnections();
+    }
+  }
+
+  /**
+   * Deactivate a database by alias (removes from active set)
+   */
+  deactivateDatabase(alias: string): void {
+    const context = this.activeDatabases.get(alias);
+    if (!context) {
+      return; // Already inactive
+    }
+
+    // Remove from active databases
+    this.activeDatabases.delete(alias);
+
+    // Update database as inactive in DB
+    this.dbManager.setDatabaseActive(alias, false);
+
+    // Check if connection has no more active databases
+    const hasOtherDbs = Array.from(this.activeDatabases.values()).some(
+      (ctx) => ctx.connectionId === context.connectionId
+    );
+    if (!hasOtherDbs) {
+      this.activeConnections.delete(context.connectionId);
+    }
+
+    // If this was the current database, clear current
+    if (this.currentDatabaseAlias === alias) {
+      this.currentDatabaseAlias = null;
+      this.dbManager.setCurrentDatabaseAlias('');
+    }
+  }
+
+  /**
+   * Set the current/default database
+   */
+  setCurrentDatabase(alias: string): void {
+    const context = this.dbManager.getDatabaseByAlias(alias);
+    if (!context) {
+      throw new Error(`Database with alias '${alias}' not found`);
+    }
+
+    this.currentDatabaseAlias = alias;
+    this.dbManager.setCurrentDatabaseAlias(alias);
+  }
+
+  /**
+   * Get the current database
+   */
+  getCurrentDatabase(): DatabaseContext | null {
+    if (!this.currentDatabaseAlias) {
+      return null;
+    }
+
+    return this.activeDatabases.get(this.currentDatabaseAlias) || null;
+  }
+
+  /**
+   * Get all active databases
+   */
+  getActiveDatabases(): DatabaseContext[] {
+    return Array.from(this.activeDatabases.values());
+  }
+
+  /**
+   * Get all active connection IDs
+   */
+  getActiveConnections(): Set<string> {
+    return new Set(this.activeConnections);
+  }
+
+  /**
+   * Update last accessed time for a database
+   */
+  updateLastAccessed(alias: string): void {
+    const context = this.activeDatabases.get(alias);
+    if (context) {
+      context.lastAccessed = Date.now();
+      this.dbManager.updateLastAccessed(alias);
+    }
+  }
+
+  /**
+   * Evict the least recently used database
+   */
+  private evictLRUDatabase(): void {
+    // Don't evict the current database
+    const candidates = Array.from(this.activeDatabases.entries())
+      .filter(([alias]) => alias !== this.currentDatabaseAlias);
+
+    if (candidates.length === 0) {
+      console.warn('Cannot evict databases: only current database is active');
+      return;
+    }
+
+    // Find LRU
+    const [lruAlias] = candidates.reduce((min, current) =>
+      current[1].lastAccessed < min[1].lastAccessed ? current : min
+    );
+
+    console.log(`Evicting LRU database: ${lruAlias} (limit: ${this.config.maxActiveDatabases})`);
+    this.deactivateDatabase(lruAlias);
+  }
+
+  /**
+   * Evict connections that have no active databases
+   */
+  private async evictUnusedConnections(): Promise<void> {
+    const unusedConnections: string[] = [];
+
+    for (const connectionId of this.activeConnections) {
+      const hasDatabases = Array.from(this.activeDatabases.values()).some(
+        (ctx) => ctx.connectionId === connectionId
+      );
+
+      if (!hasDatabases) {
+        unusedConnections.push(connectionId);
+      }
+    }
+
+    // Close pools for unused connections
+    for (const connectionId of unusedConnections) {
+      await this.closePool(connectionId);
+      this.activeConnections.delete(connectionId);
+      console.log(`Evicted unused connection: ${connectionId}`);
+    }
+  }
+
+  // ============================================================================
+  // Legacy methods for backward compatibility (deprecated)
+  // ============================================================================
+
+  /**
+   * @deprecated Use getCurrentDatabase() instead
+   */
+  getActiveConnectionId(): string | null {
+    return this.currentDatabaseAlias ? this.getCurrentDatabase()?.connectionId || null : null;
+  }
+
+  /**
+   * @deprecated Use activateDatabase() instead
+   */
+  setActiveConnectionId(_connectionId: string): void {
+    console.warn('setActiveConnectionId is deprecated, use activateDatabase with alias instead');
+  }
+
+  /**
+   * @deprecated Use getCurrentDatabase() instead
+   */
+  getActiveDatabase(_connectionId?: string): string | null {
+    return this.getCurrentDatabase()?.database || null;
+  }
+
+  /**
+   * @deprecated Use setCurrentDatabase() and activateDatabase() instead
+   */
+  setActiveDatabase(_connectionId: string, _database: string): void {
+    console.warn('setActiveDatabase is deprecated, use setCurrentDatabase with alias instead');
+  }
+
+  /**
+   * @deprecated Use getPoolForDatabase() instead
+   */
+  async getActivePool(): Promise<{ pool: Pool; connectionId: string; database: string }> {
+    if (!this.currentDatabaseAlias) {
+      throw new Error('No current database set. Please visit http://localhost:9274 to configure.');
+    }
+
+    const result = await this.getPoolForDatabase(this.currentDatabaseAlias);
+    return {
+      pool: result.pool,
+      connectionId: result.context.connectionId,
+      database: result.context.database,
     };
   }
 

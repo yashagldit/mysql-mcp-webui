@@ -2,13 +2,13 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 
 /**
  * MCP Tool: mysql_query
- * Execute SQL query against the active database
+ * Execute SQL query against a specified database
  */
 export const mysqlQueryTool: Tool = {
   name: 'mysql_query',
-  description: `Execute a SQL query against the active MySQL database.
+  description: `Execute a SQL query against a MySQL database.
 
-The query will be validated against the configured permissions for the active database before execution.
+The query will be validated against the configured permissions for the database before execution.
 
 Available permissions:
 - SELECT: Read data from tables
@@ -20,34 +20,43 @@ Available permissions:
 - DROP: Drop database objects
 - TRUNCATE: Truncate tables
 
-The query runs within a transaction and will be rolled back if it fails.`,
+The query runs within a transaction and will be rolled back if it fails.
+
+The database will be automatically activated if not already active. Use the alias (not the actual database name) to specify the database.`,
   inputSchema: {
     type: 'object',
     properties: {
+      database: {
+        type: 'string',
+        description: 'The database alias to execute the query against (use list_databases to see available aliases)',
+      },
       sql: {
         type: 'string',
         description: 'The SQL query to execute',
       },
     },
-    required: ['sql'],
+    required: ['database', 'sql'],
   },
 };
 
 /**
  * MCP Tool: list_databases
- * List all available databases from the active connection
+ * List all available databases across all connections
  */
 export const listDatabasesTool: Tool = {
   name: 'list_databases',
-  description: `List all available databases from the active MySQL connection.
+  description: `List all available databases across all MySQL connections.
 
 Returns information about each database including:
-- Database name
-- Active status (currently selected database)
+- Database alias (use this in mysql_query and switch_database)
+- Actual database name
+- Connection name
+- Active status (currently in use)
+- Current status (the default/selected database)
 - Configured permissions for each operation
 - Optionally: table count and database size (if include_metadata is true)
 
-This tool helps you see which databases are available and what operations are permitted on each.`,
+Databases are grouped by connection for better readability. Use the alias (not the database name) when calling other tools.`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -62,27 +71,28 @@ This tool helps you see which databases are available and what operations are pe
 
 /**
  * MCP Tool: switch_database
- * Switch to a different database in the active connection
+ * Switch to a different database (sets as current/default)
  */
 export const switchDatabaseTool: Tool = {
   name: 'switch_database',
-  description: `Switch to a different database within the active MySQL connection.
+  description: `Switch to a different database, making it the current/default database.
 
-This changes the active database for all subsequent queries. The switch is persisted to the configuration file.
+This sets the database as the current context and activates it for use. The database will be automatically activated if not already active.
 
 After switching, you'll receive:
 - Confirmation of the switch
-- The previous database name
-- The new active database name
-- Permissions configured for the new database
+- The database alias
+- The actual database name
+- Connection name
+- Permissions configured for the database
 
-All future mysql_query calls will execute against the newly selected database until you switch again.`,
+Use the database alias (not the actual database name) to specify which database to switch to. Use list_databases to see available aliases.`,
   inputSchema: {
     type: 'object',
     properties: {
       database: {
         type: 'string',
-        description: 'Name of the database to switch to',
+        description: 'Alias of the database to switch to (use list_databases to see available aliases)',
       },
     },
     required: ['database'],

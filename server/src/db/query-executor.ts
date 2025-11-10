@@ -61,18 +61,37 @@ export class QueryExecutor {
 
   /**
    * Execute a SQL query with permission checking and transaction support
+   * @param sql SQL query to execute
+   * @param connectionId Connection ID (optional for backward compatibility)
+   * @param database Database name (optional for backward compatibility)
    */
-  async executeQuery(sql: string): Promise<QueryResult> {
+  async executeQuery(sql: string, connectionId?: string, database?: string): Promise<QueryResult> {
     const startTime = Date.now();
 
-    // Get active connection and database (session-aware)
-    const { pool, connectionId, database } = await this.getActivePool();
+    // If connectionId and database are provided, use them directly
+    // Otherwise fall back to the old behavior (get from active pool)
+    let pool: Pool;
+    let actualConnectionId: string;
+    let actualDatabase: string;
 
-    // Get permissions for the active database
-    const dbConfig = this.dbManager.getDatabaseConfig(connectionId, database);
+    if (connectionId && database) {
+      // v4.0: Explicit connection + database parameters
+      actualConnectionId = connectionId;
+      actualDatabase = database;
+      pool = await this.connectionManager.getPool(connectionId);
+    } else {
+      // Legacy: Use getActivePool() for backward compatibility
+      const activePool = await this.getActivePool();
+      pool = activePool.pool;
+      actualConnectionId = activePool.connectionId;
+      actualDatabase = activePool.database;
+    }
+
+    // Get permissions for the database
+    const dbConfig = this.dbManager.getDatabaseConfig(actualConnectionId, actualDatabase);
 
     if (!dbConfig) {
-      throw new Error(`Database ${database} not found in connection configuration`);
+      throw new Error(`Database ${actualDatabase} not found in connection configuration`);
     }
 
     const permissions = dbConfig.permissions;
@@ -88,9 +107,9 @@ export class QueryExecutor {
     let result: QueryResult;
 
     if (this.permissionValidator.isReadOperation(validation.queryType)) {
-      result = await this.executeReadQuery(pool, database, sql);
+      result = await this.executeReadQuery(pool, actualDatabase, sql);
     } else {
-      result = await this.executeWriteQuery(pool, database, sql);
+      result = await this.executeWriteQuery(pool, actualDatabase, sql);
     }
 
     // Add execution time

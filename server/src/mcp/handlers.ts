@@ -131,49 +131,81 @@ Once configured, you'll be able to query your databases through Claude!
   }
 
   /**
-   * Get active connection ID based on transport mode
-   * - stdio mode: uses ConnectionManager (process-level state)
-   * - HTTP mode: uses SessionManager (session-level state)
+   * Activate a database by alias (dual-mode: stdio or HTTP session)
+   */
+  private async activateDatabase(alias: string): Promise<void> {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      this.sessionManager.activateDatabase(this.currentSessionId, alias);
+    } else {
+      await this.connectionManager.activateDatabase(alias);
+    }
+  }
+
+  /**
+   * Set current database by alias (dual-mode: stdio or HTTP session)
+   */
+  private setCurrentDatabase(alias: string): void {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      this.sessionManager.setCurrentDatabase(this.currentSessionId, alias);
+    } else {
+      this.connectionManager.setCurrentDatabase(alias);
+    }
+  }
+
+  /**
+   * Get current database (dual-mode: stdio or HTTP session)
+   */
+  private getCurrentDatabase(): any | null {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      return this.sessionManager.getCurrentDatabase(this.currentSessionId);
+    } else {
+      return this.connectionManager.getCurrentDatabase();
+    }
+  }
+
+  /**
+   * Get all active databases (dual-mode: stdio or HTTP session)
+   */
+  private getActiveDatabases(): any[] {
+    if (this.transportMode === 'http' && this.currentSessionId) {
+      return this.sessionManager.getActiveDatabases(this.currentSessionId);
+    } else {
+      return this.connectionManager.getActiveDatabases();
+    }
+  }
+
+  // ============================================================================
+  // Legacy methods (deprecated but kept for compatibility)
+  // ============================================================================
+
+  /**
+   * @deprecated Use getCurrentDatabase() instead
    */
   private getActiveConnectionId(): string | null {
-    if (this.transportMode === 'http' && this.currentSessionId) {
-      return this.sessionManager.getActiveConnection(this.currentSessionId);
-    } else {
-      return this.connectionManager.getActiveConnectionId();
-    }
+    const current = this.getCurrentDatabase();
+    return current?.connectionId || null;
   }
 
   /**
-   * Set active connection ID based on transport mode
+   * @deprecated Use setCurrentDatabase() instead
    */
-  private setActiveConnectionId(connectionId: string): void {
-    if (this.transportMode === 'http' && this.currentSessionId) {
-      this.sessionManager.setActiveConnection(this.currentSessionId, connectionId);
-    } else {
-      this.connectionManager.setActiveConnectionId(connectionId);
-    }
+  private setActiveConnectionId(_connectionId: string): void {
+    // No-op, kept for compatibility
   }
 
   /**
-   * Get active database based on transport mode
+   * @deprecated Use getCurrentDatabase() instead
    */
-  private getActiveDatabase(connectionId?: string): string | null {
-    if (this.transportMode === 'http' && this.currentSessionId) {
-      return this.sessionManager.getActiveDatabase(this.currentSessionId, connectionId);
-    } else {
-      return this.connectionManager.getActiveDatabase(connectionId);
-    }
+  private getActiveDatabase(_connectionId?: string): string | null {
+    const current = this.getCurrentDatabase();
+    return current?.database || null;
   }
 
   /**
-   * Set active database based on transport mode
+   * @deprecated Use setCurrentDatabase() and activateDatabase() instead
    */
-  private setActiveDatabase(connectionId: string, database: string): void {
-    if (this.transportMode === 'http' && this.currentSessionId) {
-      this.sessionManager.setActiveDatabase(this.currentSessionId, connectionId, database);
-    } else {
-      this.connectionManager.setActiveDatabase(connectionId, database);
-    }
+  private setActiveDatabase(_connectionId: string, _database: string): void {
+    // No-op, kept for compatibility
   }
 
   /**
@@ -278,7 +310,19 @@ Once configured, you'll be able to query your databases through Claude!
    * Handle mysql_query tool call
    */
   private async handleMysqlQuery(args: unknown): Promise<CallToolResult> {
-    const { sql } = args as { sql: string };
+    const { database: alias, sql } = args as { database: string; sql: string };
+
+    if (!alias) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Error: database parameter is required (use the database alias from list_databases)',
+          },
+        ],
+        isError: true,
+      };
+    }
 
     if (!sql) {
       return {
@@ -293,13 +337,28 @@ Once configured, you'll be able to query your databases through Claude!
     }
 
     try {
-      // Pass session context to query executor
-      this.queryExecutor.setSession(this.currentSessionId, this.transportMode);
+      // Get database context by alias
+      const dbContext = this.dbManager.getDatabaseByAlias(alias);
+      if (!dbContext) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Database with alias '${alias}' not found. Use list_databases to see available databases.`,
+            },
+          ],
+          isError: true,
+        };
+      }
 
-      const result = await this.queryExecutor.executeQuery(sql);
+      // Auto-activate the database
+      await this.activateDatabase(alias);
+
+      // Execute query with explicit connection and database
+      const result = await this.queryExecutor.executeQuery(sql, dbContext.connectionId, dbContext.database);
 
       // Format result as text
-      const resultText = this.formatQueryResult(result);
+      const resultText = this.formatQueryResult(result, dbContext);
 
       return {
         content: [
@@ -329,77 +388,59 @@ Once configured, you'll be able to query your databases through Claude!
     const { include_metadata = false } = (args as { include_metadata?: boolean }) || {};
 
     try {
-      // Get active connection (dual-mode: stdio or HTTP session)
-      const connectionId = this.getActiveConnectionId();
-      if (!connectionId) {
+      // Get all databases with their status
+      const allDatabases = this.dbManager.getAllDatabasesWithStatus();
+
+      if (allDatabases.length === 0) {
         return {
           content: [
             {
               type: 'text',
-              text: 'Error: No active connection configured. Please visit http://localhost:9274 to add a database connection.',
+              text: 'No databases configured. Please visit http://localhost:9274 to add a MySQL connection and discover databases.',
             },
           ],
-          isError: true,
         };
       }
 
-      const connection = this.dbManager.getConnection(connectionId);
-      if (!connection) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Error: Active connection not found',
-            },
-          ],
-          isError: true,
+      // Get current and active databases from session/process state
+      const currentDb = this.getCurrentDatabase();
+      const activeDbs = this.getActiveDatabases();
+      const activeAliases = new Set(activeDbs.map((db: any) => db.alias));
+
+      // Group databases by connection
+      const grouped: Record<string, any[]> = {};
+
+      for (const db of allDatabases) {
+        if (!db.isEnabled) continue; // Skip disabled databases
+
+        if (!grouped[db.connectionName]) {
+          grouped[db.connectionName] = [];
+        }
+
+        const dbInfo: any = {
+          alias: db.alias,
+          name: db.database,
+          isActive: activeAliases.has(db.alias),
+          isCurrent: currentDb?.alias === db.alias,
+          permissions: db.permissions,
         };
-      }
 
-      // Get active database (dual-mode: stdio or HTTP session)
-      const activeDatabase = this.getActiveDatabase(connectionId);
-
-      // Filter out disabled databases (only show enabled ones via MCP)
-      const databaseNames = Object.keys(connection.databases).filter(
-        (dbName) => connection.databases[dbName].isEnabled
-      );
-      const databases = [];
-
-      if (include_metadata) {
-        // Get metadata for each database
-        const pool = await this.connectionManager.getPool(connection.id);
-
-        for (const dbName of databaseNames) {
+        // Add metadata if requested
+        if (include_metadata) {
           try {
-            const metadata = await this.databaseDiscovery.getDatabaseMetadata(pool, dbName);
-            databases.push({
-              name: metadata.name,
-              isActive: activeDatabase === metadata.name,
-              permissions: connection.databases[metadata.name].permissions,
-              tableCount: metadata.tableCount,
-              size: metadata.sizeFormatted,
-            });
+            const pool = await this.connectionManager.getPool(db.connectionId);
+            const metadata = await this.databaseDiscovery.getDatabaseMetadata(pool, db.database);
+            dbInfo.tableCount = metadata.tableCount;
+            dbInfo.size = metadata.sizeFormatted;
           } catch (error) {
-            // If metadata fails, just include basic info
-            databases.push({
-              name: dbName,
-              isActive: activeDatabase === dbName,
-              permissions: connection.databases[dbName].permissions,
-            });
+            // Metadata fetch failed, skip it
           }
         }
-      } else {
-        // Just return basic info
-        for (const dbName of databaseNames) {
-          databases.push({
-            name: dbName,
-            isActive: activeDatabase === dbName,
-            permissions: connection.databases[dbName].permissions,
-          });
-        }
+
+        grouped[db.connectionName].push(dbInfo);
       }
 
-      const resultText = this.formatDatabaseList(connection.name, databases, activeDatabase || undefined);
+      const resultText = this.formatDatabaseListGrouped(grouped, currentDb?.alias);
 
       return {
         content: [
@@ -426,14 +467,14 @@ Once configured, you'll be able to query your databases through Claude!
    * Handle switch_database tool call
    */
   private async handleSwitchDatabase(args: unknown): Promise<CallToolResult> {
-    const { database } = args as { database: string };
+    const { database: alias } = args as { database: string };
 
-    if (!database) {
+    if (!alias) {
       return {
         content: [
           {
             type: 'text',
-            text: 'Error: database parameter is required',
+            text: 'Error: database parameter is required (use the database alias from list_databases)',
           },
         ],
         isError: true,
@@ -441,39 +482,28 @@ Once configured, you'll be able to query your databases through Claude!
     }
 
     try {
-      // Get active connection (dual-mode: stdio or HTTP session)
-      const connectionId = this.getActiveConnectionId();
-      if (!connectionId) {
+      // Get database context by alias
+      const dbContext = this.dbManager.getDatabaseByAlias(alias);
+      if (!dbContext) {
         return {
           content: [
             {
               type: 'text',
-              text: 'Error: No active connection configured. Please visit http://localhost:9274 to add a database connection.',
+              text: `Error: Database with alias '${alias}' not found. Use list_databases to see available databases.`,
             },
           ],
           isError: true,
         };
       }
 
-      const connection = this.dbManager.getConnection(connectionId);
-      if (!connection) {
+      // Get database config for permissions
+      const dbConfig = this.dbManager.getDatabaseConfig(dbContext.connectionId, dbContext.database);
+      if (!dbConfig) {
         return {
           content: [
             {
               type: 'text',
-              text: 'Error: Active connection not found',
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      if (!connection.databases[database]) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error: Database '${database}' not found in connection '${connection.name}'`,
+              text: `Error: Database configuration not found for '${alias}'`,
             },
           ],
           isError: true,
@@ -481,26 +511,32 @@ Once configured, you'll be able to query your databases through Claude!
       }
 
       // Check if database is enabled
-      if (!connection.databases[database].isEnabled) {
+      if (!dbConfig.isEnabled) {
         return {
           content: [
             {
               type: 'text',
-              text: `Error: Database '${database}' is disabled and not accessible via MCP`,
+              text: `Error: Database '${alias}' is disabled and not accessible via MCP`,
             },
           ],
           isError: true,
         };
       }
 
-      const previousDatabase = this.getActiveDatabase(connectionId);
+      // Get previous current database
+      const previousDb = this.getCurrentDatabase();
 
-      // Switch database (dual-mode: stdio process or HTTP session)
-      this.setActiveDatabase(connectionId, database);
+      // Activate and set as current (dual-mode: stdio or HTTP session)
+      await this.activateDatabase(alias);
+      this.setCurrentDatabase(alias);
 
-      const newPermissions = connection.databases[database].permissions;
-
-      const resultText = this.formatSwitchResult(previousDatabase || undefined, database, newPermissions);
+      const resultText = this.formatSwitchResult(
+        previousDb?.alias,
+        alias,
+        dbContext.database,
+        dbContext.connectionName,
+        dbConfig.permissions
+      );
 
       return {
         content: [
@@ -526,10 +562,10 @@ Once configured, you'll be able to query your databases through Claude!
   /**
    * Format query result as readable text
    */
-  private formatQueryResult(result: { rows: unknown[]; fields: string[]; rowCount: number; executionTime: string }): string {
+  private formatQueryResult(result: { rows: unknown[]; fields: string[]; rowCount: number; executionTime: string }, dbContext: any): string {
     const lines: string[] = [];
 
-    lines.push(`Query executed successfully`);
+    lines.push(`Query executed successfully on '${dbContext.alias}' (${dbContext.database} @ ${dbContext.connectionName})`);
     lines.push(`Rows: ${result.rowCount}`);
     lines.push(`Execution time: ${result.executionTime}`);
     lines.push('');
@@ -545,15 +581,48 @@ Once configured, you'll be able to query your databases through Claude!
   }
 
   /**
-   * Format database list as readable text
+   * Format database list grouped by connection as readable text
    */
-  private formatDatabaseList(connectionName: string, databases: unknown[], activeDatabase?: string): string {
+  private formatDatabaseListGrouped(grouped: Record<string, any[]>, currentAlias?: string): string {
     const lines: string[] = [];
 
-    lines.push(`Databases for connection: ${connectionName}`);
-    lines.push(`Active database: ${activeDatabase || 'none'}`);
+    lines.push('Available Databases');
+    lines.push('==================');
     lines.push('');
-    lines.push(JSON.stringify(databases, null, 2));
+
+    if (currentAlias) {
+      lines.push(`Current database: ${currentAlias} ⭐`);
+      lines.push('');
+    }
+
+    for (const [connectionName, databases] of Object.entries(grouped)) {
+      lines.push(`Connection: ${connectionName}`);
+      lines.push('-'.repeat(50));
+
+      for (const db of databases) {
+        const markers = [];
+        if (db.isCurrent) markers.push('⭐ CURRENT');
+        if (db.isActive) markers.push('🔵 ACTIVE');
+
+        const statusText = markers.length > 0 ? ` [${markers.join(', ')}]` : '';
+
+        lines.push(`  • Alias: ${db.alias}${statusText}`);
+        lines.push(`    Name: ${db.name}`);
+
+        if (db.tableCount !== undefined) {
+          lines.push(`    Tables: ${db.tableCount}`);
+        }
+        if (db.size !== undefined) {
+          lines.push(`    Size: ${db.size}`);
+        }
+
+        lines.push(`    Permissions: ${JSON.stringify(db.permissions)}`);
+        lines.push('');
+      }
+    }
+
+    lines.push('');
+    lines.push('💡 Use the alias (not the database name) in mysql_query and switch_database');
 
     return lines.join('\n');
   }
@@ -561,12 +630,21 @@ Once configured, you'll be able to query your databases through Claude!
   /**
    * Format database switch result as readable text
    */
-  private formatSwitchResult(previousDatabase: string | undefined, newDatabase: string, permissions: unknown): string {
+  private formatSwitchResult(
+    previousAlias: string | undefined,
+    newAlias: string,
+    databaseName: string,
+    connectionName: string,
+    permissions: unknown
+  ): string {
     const lines: string[] = [];
 
-    lines.push(`Successfully switched database`);
-    lines.push(`Previous: ${previousDatabase || 'none'}`);
-    lines.push(`Current: ${newDatabase}`);
+    lines.push(`✅ Successfully switched to database '${newAlias}'`);
+    lines.push('');
+    lines.push(`Previous: ${previousAlias || 'none'}`);
+    lines.push(`Current: ${newAlias}`);
+    lines.push(`Database: ${databaseName}`);
+    lines.push(`Connection: ${connectionName}`);
     lines.push('');
     lines.push('Permissions:');
     lines.push(JSON.stringify(permissions, null, 2));

@@ -773,22 +773,37 @@ export class DatabaseManager {
   addDatabases(connectionId: string, databaseNames: string[], setFirstActive: boolean = false): string[] {
     const added: string[] = [];
 
+    // Get existing aliases to ensure uniqueness
+    const existingAliases = new Set<string>();
+    const aliasStmt = this.db.prepare('SELECT alias FROM databases WHERE alias IS NOT NULL');
+    const existingRows = aliasStmt.all() as Array<{ alias: string }>;
+    existingRows.forEach((row) => existingAliases.add(row.alias.toLowerCase()));
+
     for (let i = 0; i < databaseNames.length; i++) {
       const dbName = databaseNames[i];
       const id = `db_${generateToken(12)}`;
       const is_active = setFirstActive && i === 0 ? 1 : 0;
 
+      // Generate unique alias
+      let alias = dbName;
+      let counter = 2;
+      while (existingAliases.has(alias.toLowerCase())) {
+        alias = `${dbName}_${counter}`;
+        counter++;
+      }
+      existingAliases.add(alias.toLowerCase());
+
       try {
         this.executeWithRetry(() => {
           const stmt = this.db.prepare(`
             INSERT INTO databases (
-              id, connection_id, name, is_active, is_enabled,
+              id, connection_id, name, alias, is_active, is_enabled, last_accessed,
               select_perm, insert_perm, update_perm, delete_perm,
               create_perm, alter_perm, drop_perm, truncate_perm
-            ) VALUES (?, ?, ?, ?, 1, 1, 0, 0, 0, 0, 0, 0, 0)
+            ) VALUES (?, ?, ?, ?, ?, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0)
           `);
 
-          stmt.run(id, connectionId, dbName, is_active);
+          stmt.run(id, connectionId, dbName, alias, is_active);
         });
         added.push(dbName);
       } catch (error) {
@@ -942,10 +957,236 @@ export class DatabaseManager {
 
     return {
       name: row.name,
+      alias: row.alias,
       permissions: this.dbRowToPermissions(row),
       // Treat NULL as enabled for backward compatibility
       isEnabled: row.is_enabled === null ? true : Boolean(row.is_enabled),
+      lastAccessed: row.last_accessed || 0,
     };
+  }
+
+  // ============================================================================
+  // Alias Management
+  // ============================================================================
+
+  /**
+   * Get database by alias
+   */
+  getDatabaseByAlias(alias: string): { connectionId: string; database: string; alias: string; connectionName: string } | null {
+    const stmt = this.db.prepare(`
+      SELECT d.connection_id, d.name, d.alias, c.name as connection_name
+      FROM databases d
+      JOIN connections c ON d.connection_id = c.id
+      WHERE LOWER(d.alias) = LOWER(?)
+    `);
+
+    const row = stmt.get(alias) as any;
+    if (!row) return null;
+
+    return {
+      connectionId: row.connection_id,
+      database: row.name,
+      alias: row.alias,
+      connectionName: row.connection_name,
+    };
+  }
+
+  /**
+   * Check if alias exists (case-insensitive)
+   */
+  aliasExists(alias: string, excludeConnectionId?: string, excludeDatabaseName?: string): boolean {
+    let query = 'SELECT COUNT(*) as count FROM databases WHERE LOWER(alias) = LOWER(?)';
+    const params: any[] = [alias];
+
+    if (excludeConnectionId && excludeDatabaseName) {
+      query += ' AND NOT (connection_id = ? AND name = ?)';
+      params.push(excludeConnectionId, excludeDatabaseName);
+    }
+
+    const stmt = this.db.prepare(query);
+    const result = stmt.get(...params) as { count: number };
+    return result.count > 0;
+  }
+
+  /**
+   * Update database alias
+   */
+  updateAlias(connectionId: string, databaseName: string, newAlias: string): void {
+    // Check if new alias already exists
+    if (this.aliasExists(newAlias, connectionId, databaseName)) {
+      throw new Error(`Alias '${newAlias}' already exists`);
+    }
+
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE databases
+        SET alias = ?
+        WHERE connection_id = ? AND name = ?
+      `);
+
+      stmt.run(newAlias, connectionId, databaseName);
+    });
+  }
+
+  /**
+   * Generate a unique alias for a database
+   */
+  generateUniqueAlias(connectionId: string, databaseName: string): string {
+    let alias = databaseName;
+    let counter = 2;
+
+    while (this.aliasExists(alias)) {
+      alias = `${databaseName}_${counter}`;
+      counter++;
+    }
+
+    return alias;
+  }
+
+  /**
+   * Get all databases with their status (active, current, etc.)
+   */
+  getAllDatabasesWithStatus(): Array<{
+    connectionId: string;
+    connectionName: string;
+    database: string;
+    alias: string;
+    isActive: boolean;
+    isCurrent: boolean;
+    isEnabled: boolean;
+    permissions: Permissions;
+    lastAccessed: number;
+  }> {
+    // Get current database alias
+    const currentAlias = this.getSetting('currentDatabaseAlias') || '';
+
+    const stmt = this.db.prepare(`
+      SELECT
+        d.connection_id,
+        c.name as connection_name,
+        d.name,
+        d.alias,
+        d.is_active,
+        d.is_enabled,
+        d.last_accessed,
+        d.select_perm,
+        d.insert_perm,
+        d.update_perm,
+        d.delete_perm,
+        d.create_perm,
+        d.alter_perm,
+        d.drop_perm,
+        d.truncate_perm
+      FROM databases d
+      JOIN connections c ON d.connection_id = c.id
+      ORDER BY c.name, d.name
+    `);
+
+    const rows = stmt.all() as any[];
+
+    return rows.map((row) => ({
+      connectionId: row.connection_id,
+      connectionName: row.connection_name,
+      database: row.name,
+      alias: row.alias,
+      isActive: Boolean(row.is_active),
+      isCurrent: row.alias === currentAlias,
+      isEnabled: row.is_enabled === null ? true : Boolean(row.is_enabled),
+      permissions: this.dbRowToPermissions(row),
+      lastAccessed: row.last_accessed || 0,
+    }));
+  }
+
+  /**
+   * Get current database alias from settings
+   */
+  getCurrentDatabaseAlias(): string | null {
+    const value = this.getSetting('currentDatabaseAlias');
+    return value || null;
+  }
+
+  /**
+   * Set current database alias in settings
+   */
+  setCurrentDatabaseAlias(alias: string): void {
+    this.setSetting('currentDatabaseAlias', alias);
+  }
+
+  /**
+   * Set database as active and update last accessed time
+   */
+  setDatabaseActive(alias: string, active: boolean): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE databases
+        SET is_active = ?, last_accessed = ?
+        WHERE LOWER(alias) = LOWER(?)
+      `);
+
+      stmt.run(active ? 1 : 0, Date.now(), alias);
+    });
+  }
+
+  /**
+   * Update last accessed time for a database
+   */
+  updateLastAccessed(alias: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE databases
+        SET last_accessed = ?
+        WHERE LOWER(alias) = LOWER(?)
+      `);
+
+      stmt.run(Date.now(), alias);
+    });
+  }
+
+  /**
+   * Get all active databases
+   */
+  getActiveDatabases(): Array<{
+    connectionId: string;
+    connectionName: string;
+    database: string;
+    alias: string;
+    lastAccessed: number;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT
+        d.connection_id,
+        c.name as connection_name,
+        d.name,
+        d.alias,
+        d.last_accessed
+      FROM databases d
+      JOIN connections c ON d.connection_id = c.id
+      WHERE d.is_active = 1
+      ORDER BY d.last_accessed DESC
+    `);
+
+    const rows = stmt.all() as any[];
+
+    return rows.map((row) => ({
+      connectionId: row.connection_id,
+      connectionName: row.connection_name,
+      database: row.name,
+      alias: row.alias,
+      lastAccessed: row.last_accessed || 0,
+    }));
+  }
+
+  /**
+   * Get limit settings
+   */
+  getMaxActiveDatabases(): number {
+    const value = this.getSetting('maxActiveDatabases');
+    return value ? parseInt(value, 10) : 10;
+  }
+
+  getMaxActiveConnections(): number {
+    const value = this.getSetting('maxActiveConnections');
+    return value ? parseInt(value, 10) : 5;
   }
 
   // ============================================================================

@@ -52,8 +52,10 @@ CREATE TABLE IF NOT EXISTS databases (
   id TEXT PRIMARY KEY,
   connection_id TEXT NOT NULL,
   name TEXT NOT NULL,
+  alias TEXT,
   is_active INTEGER DEFAULT 0,
   is_enabled INTEGER DEFAULT 1,
+  last_accessed INTEGER DEFAULT 0,
   select_perm INTEGER DEFAULT 1,
   insert_perm INTEGER DEFAULT 0,
   update_perm INTEGER DEFAULT 0,
@@ -98,7 +100,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_databases_unique_name ON databases(connect
 CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_user_id ON request_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
--- Note: idx_databases_is_enabled is created by migration after adding is_enabled column
+-- Note: idx_databases_is_enabled, idx_databases_unique_alias, and idx_databases_last_accessed are created by migration after adding their respective columns
 `;
 
 /**
@@ -132,6 +134,75 @@ function runMigrations(db: Database.Database): void {
   // Initialize mcp_enabled setting if not exists
   const stmt = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   stmt.run('mcp_enabled', 'true');
+
+  // v4.0.0 Migration: Add alias and last_accessed columns
+  const hasAlias = tableInfo.some((col) => col.name === 'alias');
+  const hasLastAccessed = tableInfo.some((col) => col.name === 'last_accessed');
+
+  if (!hasAlias) {
+    db.exec('ALTER TABLE databases ADD COLUMN alias TEXT');
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_databases_unique_alias ON databases(alias)');
+    console.log('Migration v4.0.0: Added alias column to databases table');
+  }
+
+  if (!hasLastAccessed) {
+    db.exec('ALTER TABLE databases ADD COLUMN last_accessed INTEGER DEFAULT 0');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_databases_last_accessed ON databases(last_accessed)');
+    console.log('Migration v4.0.0: Added last_accessed column to databases table');
+  }
+
+  // Generate unique aliases for existing databases (only if alias is NULL)
+  const aliasGenStmt = db.prepare('SELECT id, connection_id, name, alias FROM databases WHERE alias IS NULL');
+  const dbsNeedingAlias = aliasGenStmt.all() as Array<{ id: string; connection_id: string; name: string; alias: string | null }>;
+
+  if (dbsNeedingAlias.length > 0) {
+    console.log(`Migration v4.0.0: Generating aliases for ${dbsNeedingAlias.length} database(s)`);
+
+    const existingAliases = new Set<string>();
+    const getExistingAliases = db.prepare('SELECT alias FROM databases WHERE alias IS NOT NULL');
+    const existing = getExistingAliases.all() as Array<{ alias: string }>;
+    existing.forEach((row) => existingAliases.add(row.alias));
+
+    const updateAliasStmt = db.prepare('UPDATE databases SET alias = ? WHERE id = ?');
+
+    for (const dbRow of dbsNeedingAlias) {
+      let alias = dbRow.name;
+      let counter = 2;
+
+      // Generate unique alias
+      while (existingAliases.has(alias)) {
+        alias = `${dbRow.name}_${counter}`;
+        counter++;
+      }
+
+      updateAliasStmt.run(alias, dbRow.id);
+      existingAliases.add(alias);
+    }
+
+    console.log('Migration v4.0.0: Generated unique aliases for all databases');
+  }
+
+  // Initialize default settings for v4.0.0
+  const settingsStmt = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  settingsStmt.run('maxActiveDatabases', '10');
+  settingsStmt.run('maxActiveConnections', '5');
+  settingsStmt.run('currentDatabaseAlias', '');
+
+  // Migrate defaultConnection to currentDatabaseAlias if it exists
+  const defaultConnStmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+  const defaultConn = defaultConnStmt.get('defaultConnection') as { value: string } | undefined;
+
+  if (defaultConn && defaultConn.value) {
+    // Get the active database for the default connection
+    const activeDbStmt = db.prepare('SELECT alias FROM databases WHERE connection_id = ? AND is_active = 1 LIMIT 1');
+    const activeDb = activeDbStmt.get(defaultConn.value) as { alias: string } | undefined;
+
+    if (activeDb && activeDb.alias) {
+      const updateCurrentStmt = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
+      updateCurrentStmt.run(activeDb.alias, 'currentDatabaseAlias');
+      console.log(`Migration v4.0.0: Set current database to ${activeDb.alias}`);
+    }
+  }
 }
 
 /**

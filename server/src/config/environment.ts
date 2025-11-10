@@ -37,6 +37,10 @@ export interface EnvironmentConfig {
 
   // Inactivity timeout (for auto logout)
   inactivityTimeoutMs: number;
+
+  // Database limits (v4.0)
+  maxActiveDatabases: number;
+  maxActiveConnections: number;
 }
 
 /**
@@ -137,6 +141,18 @@ export function loadEnvironment(): EnvironmentConfig {
     throw new Error(`Invalid INACTIVITY_TIMEOUT_MS value: ${process.env.INACTIVITY_TIMEOUT_MS}. Must be at least 60000ms (1 minute)`);
   }
 
+  // Database limits configuration (v4.0)
+  const maxActiveDatabases = parseInt(process.env.MAX_ACTIVE_DATABASES || '10', 10);
+  const maxActiveConnections = parseInt(process.env.MAX_ACTIVE_CONNECTIONS || '5', 10);
+
+  if (isNaN(maxActiveDatabases) || maxActiveDatabases < 1) {
+    throw new Error(`Invalid MAX_ACTIVE_DATABASES value: ${process.env.MAX_ACTIVE_DATABASES}. Must be at least 1`);
+  }
+
+  if (isNaN(maxActiveConnections) || maxActiveConnections < 1) {
+    throw new Error(`Invalid MAX_ACTIVE_CONNECTIONS value: ${process.env.MAX_ACTIVE_CONNECTIONS}. Must be at least 1`);
+  }
+
   // Cache the config to prevent regenerating JWT secret on subsequent calls
   cachedConfig = {
     transport,
@@ -152,6 +168,8 @@ export function loadEnvironment(): EnvironmentConfig {
     jwtSecret,
     jwtExpiresIn,
     inactivityTimeoutMs,
+    maxActiveDatabases,
+    maxActiveConnections,
   };
 
   return cachedConfig;
@@ -189,6 +207,8 @@ export function getConfigSummary(config: EnvironmentConfig): string {
   lines.push(`JWT Secret: ***${config.jwtSecret.slice(-4)}`);
   lines.push(`JWT Expires In: ${config.jwtExpiresIn}`);
   lines.push(`Inactivity Timeout: ${config.inactivityTimeoutMs}ms (${config.inactivityTimeoutMs / 1000 / 60} minutes)`);
+  lines.push(`Max Active Databases: ${config.maxActiveDatabases}`);
+  lines.push(`Max Active Connections: ${config.maxActiveConnections}`);
   lines.push('='.repeat(50));
 
   return lines.join('\n');
