@@ -23,12 +23,18 @@ export function useTableStructure(tableName: string | null) {
   });
 }
 
-export function useTableData(tableName: string | null, page: number = 1, pageSize: number = 50) {
+export function useTableData(
+  tableName: string | null,
+  page: number = 1,
+  pageSize: number = 50,
+  sortColumn?: string,
+  sortDirection?: 'asc' | 'desc'
+) {
   const { data: activeState } = useActiveState();
 
   return useQuery<TableDataResponse>({
-    queryKey: ['tableData', activeState?.connectionId, activeState?.database, tableName, page, pageSize],
-    queryFn: () => apiClient.getTableData(tableName!, page, pageSize),
+    queryKey: ['tableData', activeState?.connectionId, activeState?.database, tableName, page, pageSize, sortColumn, sortDirection],
+    queryFn: () => apiClient.getTableData(tableName!, page, pageSize, sortColumn, sortDirection),
     enabled: !!tableName && !!activeState?.database,
   });
 }

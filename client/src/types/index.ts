@@ -33,11 +33,16 @@ export interface UpdateConnectionRequest {
 // Database types
 export interface Database {
   name: string;
+  alias: string;
   isActive: boolean;
   isEnabled: boolean;
+  isCurrent?: boolean;
   permissions: DatabasePermissions;
   tableCount?: number;
   size?: string;
+  lastAccessed?: number;
+  connectionId?: string;
+  connectionName?: string;
 }
 
 export interface DatabasePermissions {
@@ -53,6 +58,18 @@ export interface DatabasePermissions {
 
 export interface UpdatePermissionsRequest {
   permissions: DatabasePermissions;
+}
+
+export interface UpdateAliasRequest {
+  newAlias: string;
+}
+
+export interface ActivateDatabaseRequest {
+  alias: string;
+}
+
+export interface SetCurrentDatabaseRequest {
+  alias: string;
 }
 
 // Query types
@@ -102,6 +119,13 @@ export interface TableDataResponse {
     total: number;
     totalPages: number;
   };
+}
+
+export interface TableDataRequest {
+  page?: number;
+  pageSize?: number;
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
 }
 
 export interface TableInfoResponse {
@@ -203,6 +227,7 @@ export interface ActiveState {
   connectionId?: string;
   connectionName?: string;
   database?: string;
+  alias?: string;
   permissions?: DatabasePermissions;
 }
 

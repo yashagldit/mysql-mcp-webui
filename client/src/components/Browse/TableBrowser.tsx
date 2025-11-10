@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Table2, Database as DatabaseIcon, Info, Key, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Play } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Table2, Database as DatabaseIcon, Info, Key, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Play, Search } from 'lucide-react';
 import { Card, Badge, Button, Spinner, Alert, DataTable } from '../Common';
 import { useTableStructure, useTableData, useTableInfo } from '../../hooks/useBrowse';
 import { useExecuteQuery } from '../../hooks/useQuery';
@@ -16,11 +16,31 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
   const [page, setPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [querySql, setQuerySql] = useState(`SELECT * FROM \`${tableName}\` LIMIT 10`);
   const pageSize = 50;
 
+  // Determine if we should use server-side sorting
+  const [serverSort, setServerSort] = useState<{ column: string; direction: 'asc' | 'desc' } | null>(null);
+
+  // Reset state when table changes
+  useEffect(() => {
+    setPage(1);
+    setSortColumn(null);
+    setSortDirection(null);
+    setServerSort(null);
+    setSearchTerm('');
+    setQuerySql(`SELECT * FROM \`${tableName}\` LIMIT 10`);
+  }, [tableName]);
+
   const { data: structureData, isLoading: structureLoading } = useTableStructure(tableName);
-  const { data: tableData, isLoading: dataLoading } = useTableData(tableName, page, pageSize);
+  const { data: tableData, isLoading: dataLoading } = useTableData(
+    tableName,
+    page,
+    pageSize,
+    serverSort?.column,
+    serverSort?.direction
+  );
   const { data: infoData, isLoading: infoLoading } = useTableInfo(tableName);
   const executeMutation = useExecuteQuery();
 
@@ -64,56 +84,85 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
     }
   };
 
-  // Handle column sort
+  // Handle column sort with smart client/server-side logic
   const handleSort = (column: string) => {
+    const totalRows = tableData?.pagination?.total || 0;
+    const useServerSort = totalRows > pageSize;
+
     if (sortColumn === column) {
       // Toggle direction: asc -> desc -> null
       if (sortDirection === 'asc') {
         setSortDirection('desc');
+        if (useServerSort) {
+          setServerSort({ column, direction: 'desc' });
+        }
       } else if (sortDirection === 'desc') {
         setSortColumn(null);
         setSortDirection(null);
+        setServerSort(null);
       }
     } else {
       setSortColumn(column);
       setSortDirection('asc');
+      if (useServerSort) {
+        setServerSort({ column, direction: 'asc' });
+      }
     }
   };
 
-  // Sort the table data
-  const sortedRows = useMemo(() => {
-    if (!tableData?.rows || !sortColumn || !sortDirection) {
-      return tableData?.rows || [];
+  // Apply client-side search and sorting
+  const filteredAndSortedRows = useMemo(() => {
+    if (!tableData?.rows) {
+      return [];
     }
 
-    const sorted = [...tableData.rows].sort((a, b) => {
-      const aVal = a[sortColumn];
-      const bVal = b[sortColumn];
+    let rows = [...tableData.rows];
 
-      // Handle null values
-      if (aVal === null && bVal === null) return 0;
-      if (aVal === null) return sortDirection === 'asc' ? 1 : -1;
-      if (bVal === null) return sortDirection === 'asc' ? -1 : 1;
+    // Apply client-side search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      rows = rows.filter((row) => {
+        return Object.values(row).some((value) => {
+          if (value === null) return false;
+          return String(value).toLowerCase().includes(searchLower);
+        });
+      });
+    }
 
-      // Handle numbers
-      const aNum = Number(aVal);
-      const bNum = Number(bVal);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
-      }
+    // Apply client-side sort only if server-side sort is not active
+    const totalRows = tableData.pagination?.total || 0;
+    const useClientSort = totalRows <= pageSize && sortColumn && sortDirection;
 
-      // Handle strings
-      const aStr = String(aVal).toLowerCase();
-      const bStr = String(bVal).toLowerCase();
-      if (sortDirection === 'asc') {
-        return aStr < bStr ? -1 : aStr > bStr ? 1 : 0;
-      } else {
-        return bStr < aStr ? -1 : bStr > aStr ? 1 : 0;
-      }
-    });
+    if (useClientSort) {
+      rows.sort((a, b) => {
+        const aVal = a[sortColumn!];
+        const bVal = b[sortColumn!];
 
-    return sorted;
-  }, [tableData?.rows, sortColumn, sortDirection]);
+        // Handle null values
+        if (aVal === null && bVal === null) return 0;
+        if (aVal === null) return sortDirection === 'asc' ? 1 : -1;
+        if (bVal === null) return sortDirection === 'asc' ? -1 : 1;
+
+        // Handle numbers
+        const aNum = Number(aVal);
+        const bNum = Number(bVal);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+
+        // Handle strings
+        const aStr = String(aVal).toLowerCase();
+        const bStr = String(bVal).toLowerCase();
+        if (sortDirection === 'asc') {
+          return aStr < bStr ? -1 : aStr > bStr ? 1 : 0;
+        } else {
+          return bStr < aStr ? -1 : bStr > aStr ? 1 : 0;
+        }
+      });
+    }
+
+    return rows;
+  }, [tableData?.rows, tableData?.pagination?.total, sortColumn, sortDirection, searchTerm, pageSize]);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -185,6 +234,25 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                 </div>
               ) : tableData && tableData.rows.length > 0 ? (
                 <>
+                  {/* Search Input */}
+                  <div className="mb-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search in table data..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                      />
+                    </div>
+                    {searchTerm && (
+                      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                        Showing {filteredAndSortedRows.length} of {tableData.rows.length} rows
+                      </p>
+                    )}
+                  </div>
+
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                       <thead className="bg-gray-50 dark:bg-gray-900">
@@ -210,19 +278,27 @@ export const TableBrowser: React.FC<TableBrowserProps> = ({ tableName }) => {
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {sortedRows.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            {tableData.columns.map((col) => (
-                              <td key={col} className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                {row[col] === null ? (
-                                  <span className="text-gray-400 dark:text-gray-500 italic">NULL</span>
-                                ) : (
-                                  String(row[col])
-                                )}
-                              </td>
-                            ))}
+                        {filteredAndSortedRows.length > 0 ? (
+                          filteredAndSortedRows.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                              {tableData.columns.map((col) => (
+                                <td key={col} className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                  {row[col] === null ? (
+                                    <span className="text-gray-400 dark:text-gray-500 italic">NULL</span>
+                                  ) : (
+                                    String(row[col])
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={tableData.columns.length} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                              No results found for "{searchTerm}"
+                            </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>

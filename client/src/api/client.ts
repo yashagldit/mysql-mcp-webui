@@ -9,6 +9,7 @@ import type {
   DiscoverDatabasesResponse,
   Database,
   UpdatePermissionsRequest,
+  UpdateAliasRequest,
   QueryRequest,
   QueryResult,
   Settings,
@@ -165,7 +166,12 @@ class ApiClient {
   }
 
   async disableDatabase(connectionId: string, dbName: string): Promise<{ message: string }> {
-    const { data } = await this.client.put<ApiResponse<{ message: string }>>(`/connections/${connectionId}/databases/${dbName}/disable`);
+    const { data} = await this.client.put<ApiResponse<{ message: string }>>(`/connections/${connectionId}/databases/${dbName}/disable`);
+    return data.data;
+  }
+
+  async updateDatabaseAlias(connectionId: string, dbName: string, request: UpdateAliasRequest): Promise<{ message: string; alias: string }> {
+    const { data } = await this.client.put<ApiResponse<{ message: string; alias: string }>>(`/connections/${connectionId}/databases/${dbName}/alias`, request);
     return data.data;
   }
 
@@ -262,10 +268,24 @@ class ApiClient {
     return data.data;
   }
 
-  async getTableData(tableName: string, page: number = 1, pageSize: number = 50): Promise<TableDataResponse> {
-    const { data } = await this.client.get<ApiResponse<TableDataResponse>>(`/browse/tables/${encodeURIComponent(tableName)}/data`, {
-      params: { page, pageSize },
-    });
+  async getTableData(
+    tableName: string,
+    page: number = 1,
+    pageSize: number = 50,
+    sortColumn?: string,
+    sortDirection?: 'asc' | 'desc'
+  ): Promise<TableDataResponse> {
+    const params: any = { page, pageSize };
+
+    if (sortColumn && sortDirection) {
+      params.sortColumn = sortColumn;
+      params.sortDirection = sortDirection;
+    }
+
+    const { data } = await this.client.get<ApiResponse<TableDataResponse>>(
+      `/browse/tables/${encodeURIComponent(tableName)}/data`,
+      { params }
+    );
     return data.data;
   }
 

@@ -277,4 +277,57 @@ router.put('/:connId/databases/:dbName/disable', async (req: Request, res: Respo
   }
 });
 
+/**
+ * PUT /api/connections/:connId/databases/:dbName/alias
+ * Update database alias
+ */
+router.put('/:connId/databases/:dbName/alias', async (req: Request, res: Response) => {
+  try {
+    const { connId, dbName } = req.params;
+    const { newAlias } = req.body;
+
+    if (!newAlias) {
+      res.status(400).json({
+        success: false,
+        error: 'newAlias is required',
+      });
+      return;
+    }
+
+    const connection = dbManager.getConnection(connId);
+
+    if (!connection) {
+      res.status(404).json({
+        success: false,
+        error: 'Connection not found',
+      });
+      return;
+    }
+
+    if (!connection.databases[dbName]) {
+      res.status(404).json({
+        success: false,
+        error: 'Database not found',
+      });
+      return;
+    }
+
+    // Update alias
+    dbManager.updateAlias(connId, dbName, newAlias);
+
+    res.json({
+      success: true,
+      data: {
+        message: `Database alias updated to '${newAlias}'`,
+        alias: newAlias,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 export default router;

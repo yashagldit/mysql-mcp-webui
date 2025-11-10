@@ -68,3 +68,17 @@ export const useDisableDatabase = () => {
     },
   });
 };
+
+export const useUpdateAlias = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ connectionId, dbName, newAlias }: { connectionId: string; dbName: string; newAlias: string }) =>
+      apiClient.updateDatabaseAlias(connectionId, dbName, { newAlias }),
+    onSuccess: (_, { connectionId }) => {
+      queryClient.invalidateQueries({ queryKey: ['databases', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['activeState'] });
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
+    },
+  });
+};

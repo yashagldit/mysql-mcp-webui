@@ -156,7 +156,7 @@ router.get('/tables/:tableName/structure', async (req: Request, res: Response) =
 
 /**
  * GET /api/browse/tables/:tableName/data
- * Get data from a specific table with pagination
+ * Get data from a specific table with pagination and optional sorting
  */
 router.get('/tables/:tableName/data', async (req: Request, res: Response) => {
   try {
@@ -187,6 +187,39 @@ router.get('/tables/:tableName/data', async (req: Request, res: Response) => {
 
     const escapedTable = escapeIdentifier(tableName);
 
+    // Validate and sanitize sort parameters
+    const sortColumn = req.query.sortColumn as string | undefined;
+    const sortDirection = req.query.sortDirection as string | undefined;
+
+    let orderByClause = '';
+
+    if (sortColumn && sortDirection) {
+      // Validate sort direction
+      if (sortDirection !== 'asc' && sortDirection !== 'desc') {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid sort direction. Must be "asc" or "desc"',
+        });
+        return;
+      }
+
+      // Get table columns to validate sortColumn
+      const columnsResult = await queryExecutor.executeQuery(`DESCRIBE ${escapedTable}`);
+      const validColumns = columnsResult.rows.map((row: any) => row.Field);
+
+      if (!validColumns.includes(sortColumn)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid sort column. Column does not exist in table',
+        });
+        return;
+      }
+
+      // Build ORDER BY clause with escaped column name
+      const escapedColumn = escapeIdentifier(sortColumn);
+      orderByClause = ` ORDER BY ${escapedColumn} ${sortDirection.toUpperCase()}`;
+    }
+
     // Get total count with validated table name
     const countResult = await queryExecutor.executeQuery(
       `SELECT COUNT(*) as total FROM ${escapedTable}`
@@ -194,10 +227,10 @@ router.get('/tables/:tableName/data', async (req: Request, res: Response) => {
     const countRow = countResult.rows[0] as Record<string, unknown> | undefined;
     const total = Number(countRow?.total || 0);
 
-    // Get paginated data - using parameterized values where possible
+    // Get paginated data with optional sorting
     // Note: MySQL doesn't support parameterized LIMIT/OFFSET, but we've validated they're safe integers
     const dataResult = await queryExecutor.executeQuery(
-      `SELECT * FROM ${escapedTable} LIMIT ${pageSize} OFFSET ${offset}`
+      `SELECT * FROM ${escapedTable}${orderByClause} LIMIT ${pageSize} OFFSET ${offset}`
     );
 
     res.json({
