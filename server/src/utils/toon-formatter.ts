@@ -105,6 +105,14 @@ function formatValue(value: any, delimiter: string = ','): string {
     return normalizeNumber(value);
   }
 
+  // Handle objects and arrays (convert to JSON string)
+  // This handles nested structures like MySQL JSON columns when parsed
+  if (typeof value === 'object') {
+    const str = JSON.stringify(value);
+    // JSON strings always need quoting and escaping
+    return `"${escapeString(str)}"`;
+  }
+
   // Handle string
   const str = String(value);
 
