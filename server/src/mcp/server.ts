@@ -154,8 +154,16 @@ export class McpServer {
         // Check for existing session ID
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
+        // Check for response format preference header
+        const responseFormatHeader = req.headers['x-response-format'] as string | undefined;
+        const responseFormat = responseFormatHeader?.toLowerCase() === 'toon' ? 'toon' :
+                              responseFormatHeader?.toLowerCase() === 'json' ? 'json' : null;
+
         // Set session info for dual-mode handling
         this.handlers.setSession(sessionId || null, 'http');
+
+        // Set response format from header (if provided)
+        this.handlers.setResponseFormat(responseFormat);
         let transport: StreamableHTTPServerTransport;
 
         if (sessionId && this.transports.has(sessionId)) {

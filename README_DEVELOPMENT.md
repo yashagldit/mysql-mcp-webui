@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
-[![npm version](https://img.shields.io/badge/npm-v0.1.0-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
+[![npm version](https://img.shields.io/badge/npm-v0.1.2-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
 
 A MySQL MCP (Model Context Protocol) server with a React-based web UI for live configuration management. Enable Claude AI to interact with your MySQL databases through a secure, intuitive interface.
 
@@ -29,6 +29,7 @@ A MySQL MCP (Model Context Protocol) server with a React-based web UI for live c
 - **Multi-Instance Support**: Run multiple Claude Desktop instances or HTTP sessions simultaneously with isolated state
 - **MCP Tools**: Four powerful tools for Claude to interact with your MySQL databases (query, list_databases, switch_database, add_connection)
 - **Dual Transport Support**: Works with both stdio (Claude Desktop) and HTTP (Claude Code) transports
+- **TOON Format Support**: Optional token-optimized response format for ~40% token reduction (v0.1.2)
 - **Database Aliasing**: Create custom, user-friendly aliases for databases (v0.1.0)
 - **Connection Management**: Enable/disable connections to control which are active (v0.1.0)
 
@@ -192,16 +193,23 @@ The Web UI provides a comprehensive interface for managing your MySQL connection
 
 ### 1. `mysql_query`
 
-Execute SQL queries against the active database with permission validation.
+Execute SQL queries against the active database with permission validation. Supports TOON format for token-optimized responses.
 
 ```json
 {
   "name": "mysql_query",
   "arguments": {
+    "database": "my_db_alias",
     "sql": "SELECT * FROM users LIMIT 10"
   }
 }
 ```
+
+**Response Format Options:**
+- JSON (default): Standard JSON array with objects
+- TOON (optional): Token-Oriented Object Notation for ~40% fewer tokens
+  - Configure via `MCP_RESPONSE_FORMAT` environment variable (server-wide)
+  - Or via `X-Response-Format` header (per-client in HTTP mode)
 
 ### 2. `list_databases`
 
@@ -252,6 +260,67 @@ Create a new MySQL connection programmatically with validation and auto-discover
 - Auto-discovers all available databases
 - Adds discovered databases with default SELECT permission
 - Returns connection details and discovery results
+
+## TOON Format (Token Optimization)
+
+MySQL MCP Server supports **TOON (Token-Oriented Object Notation)** v2.0, an optimized format for returning query results with approximately 40% fewer tokens compared to JSON.
+
+### Configuration
+
+**Priority order (HTTP mode):**
+1. `X-Response-Format` header (per-client) - **Recommended**
+2. `MCP_RESPONSE_FORMAT` environment variable (server-wide)
+3. Default: `json`
+
+**Priority order (stdio mode):**
+1. `MCP_RESPONSE_FORMAT` environment variable
+2. Default: `json`
+
+### Example Comparison
+
+**Query:** `SELECT id, name, email FROM users LIMIT 3`
+
+**JSON format (125 characters):**
+```json
+[
+  { "id": 1, "name": "Alice", "email": "alice@example.com" },
+  { "id": 2, "name": "Bob", "email": "bob@example.com" },
+  { "id": 3, "name": "Charlie", "email": "charlie@example.com" }
+]
+```
+
+**TOON format (85 characters):**
+```
+[3]{id,name,email}:
+ 1,Alice,alice@example.com
+ 2,Bob,bob@example.com
+ 3,Charlie,charlie@example.com
+```
+
+**Token savings: 32% fewer characters**
+
+### When to Use TOON
+
+✅ **Use TOON when:**
+- Large query results (100+ rows)
+- Cost-sensitive applications where token usage matters
+- Maximizing context window efficiency
+- Running analytics or reporting queries
+
+✅ **Use JSON when:**
+- Small query results (<50 rows)
+- Debugging and development
+- Traditional API-like responses
+- When human readability is prioritized
+
+### Implementation Details
+
+- **TOON v2.0 spec-compliant**: Proper escaping, quoting, number normalization
+- **No external dependencies**: Custom formatter implementation
+- **Backward compatible**: Defaults to JSON, opt-in feature
+- **Per-client HTTP support**: Different clients can use different formats on the same server
+
+See [HEADER_CONFIG_EXAMPLES.md](HEADER_CONFIG_EXAMPLES.md) for comprehensive configuration examples.
 
 ## REST API Endpoints
 
@@ -342,6 +411,7 @@ Add one of these configurations to your Claude Desktop config file (`~/.claude.j
 
 Use this when the server is already running (via `npm start` or docker):
 
+**Default JSON format:**
 ```json
 {
   "mcpServers": {
@@ -356,16 +426,38 @@ Use this when the server is already running (via `npm start` or docker):
 }
 ```
 
+**With TOON format (per-client configuration):**
+```json
+{
+  "mcpServers": {
+    "mysql-mcp": {
+      "type": "http",
+      "url": "http://localhost:9274/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY_HERE",
+        "X-Response-Format": "toon"
+      }
+    }
+  }
+}
+```
+
 **When to use:**
 - Server is already running independently
 - Remote server access
 - Production deployments
 - Docker containers
 
+**TOON Format Benefits:**
+- ~40% fewer tokens for tabular data
+- Better Claude comprehension on structured data
+- Each client can choose their preferred format via `X-Response-Format` header
+
 #### Option 2: Stdio Mode (Let Claude Desktop Manage Server)
 
 Use this to let Claude Desktop start and stop the server automatically:
 
+**Default JSON format:**
 ```json
 {
   "mcpServers": {
@@ -377,6 +469,25 @@ Use this to let Claude Desktop start and stop the server automatically:
       "env": {
         "TRANSPORT": "stdio",
         "AUTH_TOKEN": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+**With TOON format (server-wide configuration):**
+```json
+{
+  "mcpServers": {
+    "mysql-mcp": {
+      "command": "node",
+      "args": [
+        "/path/to/mysql-mcp-webui/server/dist/index.js"
+      ],
+      "env": {
+        "TRANSPORT": "stdio",
+        "AUTH_TOKEN": "YOUR_API_KEY_HERE",
+        "MCP_RESPONSE_FORMAT": "toon"
       }
     }
   }
@@ -414,6 +525,7 @@ Configuration is stored in SQLite database at `data/mysql-mcp.db`:
 - `AUTH_TOKEN` - API key for authentication (required for stdio mode only)
 
 #### Optional Variables
+- `MCP_RESPONSE_FORMAT` - MCP response format: `json` (default) or `toon` (server-wide setting)
 - `ENABLE_HTTPS` - Enable HTTPS (default: false)
 - `SSL_CERT_PATH` - Path to SSL certificate file
 - `SSL_KEY_PATH` - Path to SSL private key file
@@ -526,6 +638,7 @@ mysql-mcp-webui/
 │   │   ├── config/   # Config management
 │   │   ├── db/       # Database layer
 │   │   ├── mcp/      # MCP server
+│   │   ├── utils/    # Utility functions (TOON formatter, etc.)
 │   │   └── types/    # TypeScript types
 │   └── dist/         # Compiled output
 ├── client/           # React frontend
@@ -551,6 +664,10 @@ npm run build
 
 ### Current Features ✅
 - Full MCP server implementation with four powerful tools
+- **TOON format support for token-optimized responses (~40% reduction)** ✨ NEW (v0.1.2)
+  - Per-client configuration via `X-Response-Format` header (HTTP mode)
+  - Server-wide configuration via `MCP_RESPONSE_FORMAT` environment variable
+  - TOON v2.0 spec-compliant implementation with no external dependencies
 - **`add_connection` MCP tool for programmatic connection creation** ✨ NEW (v0.1.0)
 - **Database aliasing system with custom user-friendly names** ✨ NEW (v0.1.0)
 - **Connection enable/disable controls** ✨ NEW (v0.1.0)

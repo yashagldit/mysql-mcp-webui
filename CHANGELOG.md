@@ -14,6 +14,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual query builder
 - Database schema diagram visualization
 
+## [0.1.2] - 2025-01-15
+
+### Added
+
+#### Per-Client TOON Format Configuration (HTTP Mode)
+- **`X-Response-Format` header support** - HTTP clients can now specify response format per-client
+- Each Claude Code instance can independently choose JSON or TOON format
+- Header-based configuration enables multiple clients with different format preferences on same server
+- Case-insensitive header values (`toon`, `TOON`, `Toon` all work)
+
+#### Enhanced Format Selection Priority
+- **Format priority system** for HTTP mode:
+  1. `X-Response-Format` header (per-client) - **Recommended**
+  2. `MCP_RESPONSE_FORMAT` environment variable (server-wide)
+  3. Default: `json`
+- stdio mode continues using `MCP_RESPONSE_FORMAT` environment variable
+
+### Changed
+- Updated `formatQueryResult()` method in McpHandlers to respect header-based format preference
+- Enhanced `setupHttpTransport()` to extract and validate `X-Response-Format` header
+- MCP handlers now accept and store per-request format preference
+
+### Documentation
+- Updated README.md with per-client configuration examples
+- Updated README_DEVELOPMENT.md with comprehensive TOON format documentation
+- Updated CLAUDE.md with implementation details and priority system
+- Created HEADER_CONFIG_EXAMPLES.md with extensive configuration examples and use cases
+
+### Technical Details
+- Header extraction in `server/src/mcp/server.ts:157-166`
+- Format selection logic in `server/src/mcp/handlers.ts:709-713`
+- Added `setResponseFormat()` method to McpHandlers
+- Added `requestResponseFormat` property for per-request format storage
+- Backward compatible - existing configs without header continue to work
+
+## [0.1.1] - 2025-01-14
+
+### Added
+
+#### TOON Format Support (stdio mode)
+- **TOON (Token-Oriented Object Notation) v2.0 formatter** for MCP query responses
+- Achieves ~40% token reduction for tabular data compared to JSON
+- Custom implementation with no external dependencies
+- `MCP_RESPONSE_FORMAT` environment variable for server-wide configuration
+
+#### TOON Formatter Features
+- TOON v2.0 spec-compliant implementation
+- Smart quoting detection (reserved words, numbers, delimiters, special characters)
+- Proper escaping: `\\`, `\"`, `\n`, `\r`, `\t` only
+- Number normalization:
+  - No exponent notation (1e6 → 1000000)
+  - Trailing zeros removed (1.50 → 1.5)
+  - Negative zero normalized (-0 → 0)
+- Root-level array format: `[count]{field1,field2}:`
+- Handles empty arrays, mixed types, and edge cases
+
+### Changed
+- Updated `mysql_query` tool to support TOON format responses
+- Enhanced `formatQueryResult()` method with format detection
+- stdio mode can now use TOON or JSON based on `MCP_RESPONSE_FORMAT` env var
+
+### Documentation
+- Added TOON format section to README.md
+- Updated environment variables documentation
+- Added configuration examples for stdio mode with TOON
+
+### Technical Details
+- Formatter implementation in `server/src/utils/toon-formatter.ts`
+- Format selection in `server/src/mcp/handlers.ts:705-734`
+- Environment configuration in `server/src/config/environment.ts:159-164`
+- TOON format used only for MCP tool responses, Web UI continues using JSON
+- Backward compatible - defaults to JSON when not configured
+
 ## [0.1.0] - 2025-01-11
 
 ### Added
@@ -440,6 +513,8 @@ The `TRANSPORT` environment variable supports:
 
 ## Version History Summary
 
+- **v0.1.2** (2025-01-15) - Per-client TOON format via HTTP header, enhanced format selection
+- **v0.1.1** (2025-01-14) - TOON format support (stdio mode), token optimization
 - **v0.1.0** (2025-01-11) - Database aliasing, connection management, add_connection tool
 - **v0.0.7** (2025-01-07) - Documentation overhaul, user-focused README, MCP workflow examples
 - **v0.0.6** (2025-01-07) - Database browser, dark mode, security hardening, port change to 9274

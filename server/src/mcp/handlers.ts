@@ -27,6 +27,7 @@ export class McpHandlers {
   private transportMode: 'stdio' | 'http' = 'stdio';
   private isAuthenticated: boolean = true; // Default to true for HTTP mode
   private authErrorType: string | null = null;
+  private requestResponseFormat: 'json' | 'toon' | null = null; // Format from request header
 
   /**
    * Set the current API key ID for logging
@@ -49,6 +50,13 @@ export class McpHandlers {
   setSession(sessionId: string | null, mode: 'stdio' | 'http'): void {
     this.currentSessionId = sessionId;
     this.transportMode = mode;
+  }
+
+  /**
+   * Set the response format from request header (HTTP mode only)
+   */
+  setResponseFormat(format: 'json' | 'toon' | null): void {
+    this.requestResponseFormat = format;
   }
 
   /**
@@ -698,6 +706,12 @@ Once a connection is added, databases will be automatically discovered and avail
     const lines: string[] = [];
     const config = loadEnvironment();
 
+    // Determine response format with priority:
+    // 1. Request header (HTTP mode only)
+    // 2. Environment variable
+    // 3. Default: json
+    const responseFormat = this.requestResponseFormat || config.mcpResponseFormat;
+
     lines.push(`Query executed successfully on '${dbContext.alias}' (${dbContext.database} @ ${dbContext.connectionName})`);
     lines.push(`Rows: ${result.rowCount}`);
     lines.push(`Execution time: ${result.executionTime}`);
@@ -705,7 +719,7 @@ Once a connection is added, databases will be automatically discovered and avail
 
     if (result.rows.length > 0) {
       // Check if TOON format is enabled
-      if (config.mcpResponseFormat === 'toon') {
+      if (responseFormat === 'toon') {
         lines.push('Results (TOON format):');
         lines.push(toToonFormat(result.rows as any[]));
       } else {

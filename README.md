@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
-[![npm version](https://img.shields.io/badge/npm-v0.1.0-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
+[![npm version](https://img.shields.io/badge/npm-v0.1.2-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
 
 **Give Claude AI direct access to your MySQL databases through the Model Context Protocol (MCP).**
 
@@ -619,7 +619,23 @@ MySQL MCP Server supports **TOON (Token-Oriented Object Notation)**, an optimize
 }
 ```
 
-**For Docker/HTTP mode:**
+**For Claude Code / HTTP mode (per-client via header):**
+```json
+{
+  "mcpServers": {
+    "mysql-web": {
+      "type": "http",
+      "url": "https://your-server-url.com/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token",
+        "X-Response-Format": "toon"
+      }
+    }
+  }
+}
+```
+
+**For Docker/HTTP mode (server-wide via environment):**
 ```bash
 docker run -d \
   --name mysql-mcp \
@@ -628,6 +644,11 @@ docker run -d \
   -e MCP_RESPONSE_FORMAT=toon \
   mysql-mcp-webui
 ```
+
+**Priority order for HTTP mode:**
+1. `X-Response-Format` header (per-client) - **Recommended**
+2. `MCP_RESPONSE_FORMAT` environment variable (server-wide)
+3. Default: `json`
 
 **Example comparison:**
 
@@ -651,6 +672,7 @@ TOON format (compact):
 - ✅ Better Claude comprehension on structured data
 - ✅ Explicit row counts help LLM validation
 - ✅ Works in both stdio and HTTP modes
+- ✅ **HTTP mode: Per-client configuration** via `X-Response-Format` header (different Claude Code instances can use different formats on the same server)
 
 **Note:** TOON is optional. The default JSON format works perfectly fine for most use cases.
 

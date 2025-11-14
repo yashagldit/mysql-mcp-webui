@@ -284,10 +284,14 @@ The four MCP tools are defined in [server/src/mcp/tools.ts](server/src/mcp/tools
 Tool handlers receive database and connection managers as dependencies (dependency injection pattern).
 
 **Response Formatting:**
-- Query results from `mysql_query` are formatted based on `MCP_RESPONSE_FORMAT` environment variable
+- Query results from `mysql_query` are formatted based on format preference with priority:
+  1. `X-Response-Format` header (HTTP mode only, per-client)
+  2. `MCP_RESPONSE_FORMAT` environment variable (server-wide)
+  3. Default: `json`
 - `json` (default): Standard JSON format for results
 - `toon`: TOON v2.0 format for ~40% token reduction on tabular data
-- Format selection occurs in `formatQueryResult()` method of McpHandlers ([server/src/mcp/handlers.ts](server/src/mcp/handlers.ts):697)
+- Format selection occurs in `formatQueryResult()` method of McpHandlers ([server/src/mcp/handlers.ts](server/src/mcp/handlers.ts):705)
+- Header extraction in `setupHttpTransport()` ([server/src/mcp/server.ts](server/src/mcp/server.ts):157-166)
 
 ## Recent Changes
 
@@ -300,10 +304,18 @@ Tool handlers receive database and connection managers as dependencies (dependen
 - No external dependencies - custom formatter in [server/src/utils/toon-formatter.ts](server/src/utils/toon-formatter.ts)
 
 **Implementation:**
-- Added `MCP_RESPONSE_FORMAT` environment variable (`json` or `toon`)
-- Updated `mysql_query` handler to format results based on configuration
+- Added `MCP_RESPONSE_FORMAT` environment variable (`json` or `toon`) for server-wide default
+- Added `X-Response-Format` header support for per-client configuration (HTTP mode)
+- Updated `mysql_query` handler to format results based on configuration with priority
+- Format selection: Header > Environment variable > Default (json)
 - Works in both stdio and HTTP transport modes
 - TOON format used only for MCP tool responses, Web UI continues using JSON
+
+**Per-Client Configuration (HTTP mode):**
+- Each Claude Code instance can specify its preferred format via `X-Response-Format` header
+- Enables multiple clients with different format preferences on same server
+- Header value is case-insensitive (`toon`, `TOON`, `Toon` all work)
+- Implemented in `setupHttpTransport()` with header extraction and validation
 
 **Formatter Features:**
 - Smart quoting detection (reserved words, numbers, delimiters, special chars)
