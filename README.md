@@ -581,6 +581,7 @@ TRANSPORT=http HTTP_PORT=3001 mysql-mcp-webui
 | `HTTP_PORT` | `9274` | Port for Web UI, API, and MCP endpoint (customizable in both modes) |
 | `AUTH_TOKEN` | - | API key (required for stdio mode) |
 | `NODE_ENV` | `development` | Environment: `development` or `production` |
+| `MCP_RESPONSE_FORMAT` | `json` | MCP response format: `json` or `toon` (see [TOON Format](#toon-format-token-optimization) below) |
 | `ENABLE_HTTPS` | `false` | Enable HTTPS/TLS |
 | `SSL_CERT_PATH` | - | Path to SSL certificate (required if HTTPS enabled) |
 | `SSL_KEY_PATH` | - | Path to SSL private key (required if HTTPS enabled) |
@@ -589,6 +590,71 @@ TRANSPORT=http HTTP_PORT=3001 mysql-mcp-webui
 | `RATE_LIMIT_ENABLED` | `true` | Enable rate limiting |
 | `RATE_LIMIT_WINDOW_MS` | `900000` | Rate limit window in milliseconds (15 minutes) |
 | `RATE_LIMIT_MAX_REQUESTS` | `100` | Maximum requests per window |
+
+### TOON Format (Token Optimization)
+
+MySQL MCP Server supports **TOON (Token-Oriented Object Notation)**, an optimized format for returning query results to Claude with ~40% fewer tokens compared to JSON.
+
+**When to use TOON:**
+- Large query results (100+ rows)
+- Cost-sensitive applications where token usage matters
+- Maximizing context window efficiency
+
+**How to enable:**
+
+**For Claude Desktop (stdio mode):**
+```json
+{
+  "mcpServers": {
+    "mysql": {
+      "command": "npx",
+      "args": ["-y", "mysql-mcp-webui"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "AUTH_TOKEN": "your-token",
+        "MCP_RESPONSE_FORMAT": "toon"
+      }
+    }
+  }
+}
+```
+
+**For Docker/HTTP mode:**
+```bash
+docker run -d \
+  --name mysql-mcp \
+  -p 9274:9274 \
+  -e TRANSPORT=http \
+  -e MCP_RESPONSE_FORMAT=toon \
+  mysql-mcp-webui
+```
+
+**Example comparison:**
+
+Standard JSON response (verbose):
+```json
+[
+  { "id": 1, "name": "Alice", "email": "alice@example.com" },
+  { "id": 2, "name": "Bob", "email": "bob@example.com" }
+]
+```
+
+TOON format (compact):
+```
+[2]{id,name,email}:
+ 1,Alice,alice@example.com
+ 2,Bob,bob@example.com
+```
+
+**Benefits:**
+- ✅ ~40% fewer tokens for tabular data
+- ✅ Better Claude comprehension on structured data
+- ✅ Explicit row counts help LLM validation
+- ✅ Works in both stdio and HTTP modes
+
+**Note:** TOON is optional. The default JSON format works perfectly fine for most use cases.
+
+Learn more about TOON: [github.com/toon-format/toon](https://github.com/toon-format/toon)
 
 ## Web UI Features
 

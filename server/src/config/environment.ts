@@ -41,6 +41,9 @@ export interface EnvironmentConfig {
   // Database limits (v4.0)
   maxActiveDatabases: number;
   maxActiveConnections: number;
+
+  // MCP Response Format
+  mcpResponseFormat: 'json' | 'toon';
 }
 
 /**
@@ -153,6 +156,13 @@ export function loadEnvironment(): EnvironmentConfig {
     throw new Error(`Invalid MAX_ACTIVE_CONNECTIONS value: ${process.env.MAX_ACTIVE_CONNECTIONS}. Must be at least 1`);
   }
 
+  // MCP Response Format configuration
+  const mcpResponseFormat = (process.env.MCP_RESPONSE_FORMAT?.toLowerCase() || 'json') as 'json' | 'toon';
+
+  if (mcpResponseFormat !== 'json' && mcpResponseFormat !== 'toon') {
+    throw new Error(`Invalid MCP_RESPONSE_FORMAT value: ${process.env.MCP_RESPONSE_FORMAT}. Must be 'json' or 'toon'`);
+  }
+
   // Cache the config to prevent regenerating JWT secret on subsequent calls
   cachedConfig = {
     transport,
@@ -170,6 +180,7 @@ export function loadEnvironment(): EnvironmentConfig {
     inactivityTimeoutMs,
     maxActiveDatabases,
     maxActiveConnections,
+    mcpResponseFormat,
   };
 
   return cachedConfig;
@@ -209,6 +220,7 @@ export function getConfigSummary(config: EnvironmentConfig): string {
   lines.push(`Inactivity Timeout: ${config.inactivityTimeoutMs}ms (${config.inactivityTimeoutMs / 1000 / 60} minutes)`);
   lines.push(`Max Active Databases: ${config.maxActiveDatabases}`);
   lines.push(`Max Active Connections: ${config.maxActiveConnections}`);
+  lines.push(`MCP Response Format: ${config.mcpResponseFormat.toUpperCase()}`);
   lines.push('='.repeat(50));
 
   return lines.join('\n');

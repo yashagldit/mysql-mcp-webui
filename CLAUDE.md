@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MySQL MCP WebUI is a dual-purpose system that implements the Model Context Protocol (MCP) to enable Claude AI to interact with MySQL databases while providing a React-based web UI for configuration management. The project has two distinct but interconnected functionalities:
 
-1. **MCP Server**: Exposes three tools (mysql_query, list_databases, switch_database) for Claude to interact with MySQL
+1. **MCP Server**: Exposes four tools (mysql_query, list_databases, switch_database, add_connection) for Claude to interact with MySQL, with optional TOON format for token-efficient responses
 2. **Web UI**: React application for managing connections, databases, permissions, and API keys
 
 ## Commands
@@ -190,6 +190,9 @@ Key files:
 - [server/src/api/routes/auth.ts](server/src/api/routes/auth.ts) - Authentication endpoints (v3.1)
 - [server/src/api/routes/users.ts](server/src/api/routes/users.ts) - User management endpoints (v3.1)
 
+### Utilities
+- [server/src/utils/toon-formatter.ts](server/src/utils/toon-formatter.ts) - TOON format v2.0 compliant formatter for token-efficient LLM responses
+
 ### Frontend Core
 - [client/src/App.tsx](client/src/App.tsx) - React app structure with routing
 - [client/src/api/client.ts](client/src/api/client.ts) - Axios API client with cookie support (v3.1)
@@ -231,6 +234,7 @@ React Query hooks in [client/src/hooks/](client/src/hooks/) wrap API calls:
 - `HTTP_PORT` - HTTP server port (default: 3000)
 - `NODE_ENV` - Environment: `development` or `production`
 - `AUTH_TOKEN` - API key for authentication (required for stdio mode only)
+- `MCP_RESPONSE_FORMAT` - MCP response format: `json` (default) or `toon` (Token-Oriented Object Notation for ~40% token reduction)
 
 **JWT Authentication (v3.1 - HTTP mode only):**
 - `JWT_SECRET` - Secret for JWT token signing (32+ characters, optional in HTTP development, not used in stdio mode)
@@ -270,15 +274,49 @@ In development, the client runs on port 5173 (Vite) and proxies API requests to 
 
 ## MCP Tools Implementation
 
-The three MCP tools are defined in [server/src/mcp/tools.ts](server/src/mcp/tools.ts) and implemented in [server/src/mcp/handlers.ts](server/src/mcp/handlers.ts):
+The four MCP tools are defined in [server/src/mcp/tools.ts](server/src/mcp/tools.ts) and implemented in [server/src/mcp/handlers.ts](server/src/mcp/handlers.ts):
 
-1. **mysql_query** - Executes SQL with permission validation
+1. **mysql_query** - Executes SQL with permission validation; supports TOON format for token-efficient responses
 2. **list_databases** - Lists databases with permissions and optional metadata
 3. **switch_database** - Changes active database and persists to config
+4. **add_connection** - Adds new MySQL connections with auto-discovery
 
 Tool handlers receive database and connection managers as dependencies (dependency injection pattern).
 
+**Response Formatting:**
+- Query results from `mysql_query` are formatted based on `MCP_RESPONSE_FORMAT` environment variable
+- `json` (default): Standard JSON format for results
+- `toon`: TOON v2.0 format for ~40% token reduction on tabular data
+- Format selection occurs in `formatQueryResult()` method of McpHandlers ([server/src/mcp/handlers.ts](server/src/mcp/handlers.ts):697)
+
 ## Recent Changes
+
+### v3.2 - TOON Format Support for Token Optimization
+
+**TOON Response Format:**
+- Added TOON (Token-Oriented Object Notation) v2.0 formatter for MCP query responses
+- Achieves ~40% token reduction for tabular data compared to JSON
+- Spec-compliant implementation with proper escaping, quoting, and number normalization
+- No external dependencies - custom formatter in [server/src/utils/toon-formatter.ts](server/src/utils/toon-formatter.ts)
+
+**Implementation:**
+- Added `MCP_RESPONSE_FORMAT` environment variable (`json` or `toon`)
+- Updated `mysql_query` handler to format results based on configuration
+- Works in both stdio and HTTP transport modes
+- TOON format used only for MCP tool responses, Web UI continues using JSON
+
+**Formatter Features:**
+- Smart quoting detection (reserved words, numbers, delimiters, special chars)
+- Spec-compliant escaping: `\\`, `\"`, `\n`, `\r`, `\t` only
+- Number normalization: no exponents, trailing zeros removed, -0 → 0
+- Root-level array format: `[count]{field1,field2}:`
+- Validates against TOON v2.0 specification
+
+**Benefits:**
+- Reduced token usage for large query results
+- Better LLM comprehension on structured data
+- Explicit row counts help validation
+- Optional feature - defaults to JSON for backward compatibility
 
 ### v3.1 - User Authentication & Multi-User Support
 

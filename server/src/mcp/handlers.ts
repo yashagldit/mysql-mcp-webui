@@ -13,6 +13,8 @@ import { sanitizeForLogging } from '../utils/sanitize.js';
 import { getMasterKey } from '../config/master-key.js';
 import { AddConnectionRequestSchema } from '../types/index.js';
 import type { AddConnectionRequest } from '../types/index.js';
+import { loadEnvironment } from '../config/environment.js';
+import { toToonFormat } from '../utils/toon-formatter.js';
 
 export class McpHandlers {
   private queryExecutor = getQueryExecutor();
@@ -694,6 +696,7 @@ Once a connection is added, databases will be automatically discovered and avail
    */
   private formatQueryResult(result: { rows: unknown[]; fields: string[]; rowCount: number; executionTime: string }, dbContext: any): string {
     const lines: string[] = [];
+    const config = loadEnvironment();
 
     lines.push(`Query executed successfully on '${dbContext.alias}' (${dbContext.database} @ ${dbContext.connectionName})`);
     lines.push(`Rows: ${result.rowCount}`);
@@ -701,8 +704,14 @@ Once a connection is added, databases will be automatically discovered and avail
     lines.push('');
 
     if (result.rows.length > 0) {
-      lines.push('Results:');
-      lines.push(JSON.stringify(result.rows, null, 2));
+      // Check if TOON format is enabled
+      if (config.mcpResponseFormat === 'toon') {
+        lines.push('Results (TOON format):');
+        lines.push(toToonFormat(result.rows as any[]));
+      } else {
+        lines.push('Results:');
+        lines.push(JSON.stringify(result.rows, null, 2));
+      }
     } else {
       lines.push('No rows returned');
     }
