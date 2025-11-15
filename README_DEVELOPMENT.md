@@ -315,8 +315,9 @@ MySQL MCP Server supports **TOON (Token-Oriented Object Notation)** v2.0, an opt
 
 ### Implementation Details
 
-- **TOON v2.0 spec-compliant**: Proper escaping, quoting, number normalization
-- **No external dependencies**: Custom formatter implementation
+- **Official library**: Uses `@toon-format/toon` for spec-compliant implementation (v0.1.4+)
+- **Proper nested handling**: Indentation-based encoding, dotted-key folding, smart format detection
+- **TOON v2.0 spec-compliant**: Proper escaping, quoting, number normalization, recursive structures
 - **Backward compatible**: Defaults to JSON, opt-in feature
 - **Per-client HTTP support**: Different clients can use different formats on the same server
 
@@ -664,10 +665,12 @@ npm run build
 
 ### Current Features ✅
 - Full MCP server implementation with four powerful tools
-- **TOON format support for token-optimized responses (~40% reduction)** ✨ NEW (v0.1.2)
+- **TOON format support for token-optimized responses (~40% reduction)** ✨ ENHANCED (v0.1.4)
+  - Official `@toon-format/toon` library integration for proper nested data handling
+  - Indentation-based encoding, dotted-key folding, smart format detection
   - Per-client configuration via `X-Response-Format` header (HTTP mode)
   - Server-wide configuration via `MCP_RESPONSE_FORMAT` environment variable
-  - TOON v2.0 spec-compliant implementation with no external dependencies
+  - TOON v2.0 spec-compliant with ongoing library maintenance
 - **`add_connection` MCP tool for programmatic connection creation** ✨ NEW (v0.1.0)
 - **Database aliasing system with custom user-friendly names** ✨ NEW (v0.1.0)
 - **Connection enable/disable controls** ✨ NEW (v0.1.0)

@@ -14,6 +14,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual query builder
 - Database schema diagram visualization
 
+## [0.1.4] - 2025-01-15
+
+### Changed
+
+#### Official TOON Library Integration
+- **Replaced custom TOON formatter** with official `@toon-format/toon` library
+- Proper handling of nested objects and arrays per TOON v2.0 specification
+- **Indentation-based encoding** for nested structures instead of JSON.stringify
+- **Dotted-key folding** for single-key chains (e.g., `config.database.host: localhost`)
+- **Smart format detection** - Automatically chooses optimal representation:
+  - Tabular format for arrays of flat objects
+  - List notation (`-` prefix) for arrays with nested objects
+  - Inline format for simple value arrays
+- Significant token reduction for complex nested data structures (MySQL JSON columns)
+
+### Technical Details
+- Added `@toon-format/toon` package dependency (v1.0.0)
+- Simplified `server/src/utils/toon-formatter.ts` from ~150 lines to ~20 lines
+- Maintains backward compatibility with existing TOON configuration
+- Works with both `MCP_RESPONSE_FORMAT` env var and `X-Response-Format` header
+- Spec-compliant implementation with guaranteed TOON v2.0 compatibility
+
+### Benefits
+- Better handling of MySQL JSON column data with nested structures
+- Improved token efficiency for complex query results
+- Official library provides ongoing maintenance and spec updates
+- Reduced maintenance burden for custom encoding logic
+
 ## [0.1.2] - 2025-01-15
 
 ### Added
@@ -513,6 +541,7 @@ The `TRANSPORT` environment variable supports:
 
 ## Version History Summary
 
+- **v0.1.4** (2025-01-15) - Official TOON library integration, proper nested data handling
 - **v0.1.2** (2025-01-15) - Per-client TOON format via HTTP header, enhanced format selection
 - **v0.1.1** (2025-01-14) - TOON format support (stdio mode), token optimization
 - **v0.1.0** (2025-01-11) - Database aliasing, connection management, add_connection tool

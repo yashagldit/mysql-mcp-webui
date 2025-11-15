@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
-[![npm version](https://img.shields.io/badge/npm-v0.1.3-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
+[![npm version](https://img.shields.io/badge/npm-v0.1.4-blue)](https://www.npmjs.com/package/mysql-mcp-webui)
 
 **Give Claude AI direct access to your MySQL databases through the Model Context Protocol (MCP).**
 
@@ -828,22 +828,25 @@ mysql-mcp-webui --generate-token
 mysql-mcp-webui --version
 ```
 
-## What's New in v0.1.0
+## What's New in v0.1.4
 
+- 📦 **Official TOON Library** - Integrated official `@toon-format/toon` library for proper nested data handling
+- 🏗️ **Better Nested Structures** - Proper indentation-based encoding for nested objects and arrays
+- 🔄 **Smart Formatting** - Automatic format detection for optimal representation (tabular, list, or inline)
+- ⚡ **Improved Efficiency** - Better token optimization for complex MySQL JSON column data
+- 🎯 **Dotted-Key Folding** - Compact representation for single-key chains (e.g., `config.db.host: localhost`)
+- 🛠️ **Maintained Library** - Official library ensures ongoing spec compliance and updates
+
+### Previous Updates
+
+**v0.1.0:**
 - 🔧 **New MCP Tool: add_connection** - Claude can now create MySQL connections programmatically
 - 🏷️ **Database Aliasing** - Create custom, user-friendly names for databases
 - 🎛️ **Connection Management** - Enable/disable connections to control which are active
-- ✨ **Enhanced UI** - Database cards show aliases, connection cards show enabled status
-- 🔐 **Auto-Discovery** - New connections automatically discover and configure databases
-- 📝 **Improved UX** - Better error messages guide users when no connections exist
 
-### Previous Updates (v0.0.7)
-
+**v0.0.7:**
 - 📖 **Enhanced Documentation** - New user-focused README with MCP workflow examples
 - 🔄 **Documentation Reorganization** - Technical details moved to README_DEVELOPMENT.md
-- 💡 **Better Onboarding** - Clear step-by-step setup guide with example conversations
-- 📚 **Use Case Examples** - Real-world scenarios showing how Claude uses MCP tools
-- 🎯 **Troubleshooting Guide** - Common issues and solutions for quick problem resolution
 
 ## Resources
 
