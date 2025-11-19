@@ -13,7 +13,7 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 # Install mysql-mcp-webui from npm (specify version to avoid cache)
-RUN npm install -g mysql-mcp-webui@0.1.4
+RUN npm install -g mysql-mcp-webui@0.1.5
 
 # Create data directory for SQLite database at /app/data (volume mount point)
 RUN mkdir -p /app/data && \
