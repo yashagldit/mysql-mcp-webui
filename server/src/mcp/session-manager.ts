@@ -8,6 +8,7 @@ interface Session {
   activeDatabases: Map<string, DatabaseContext>; // alias -> context
   currentDatabaseAlias: string | null;
   lastAccessed: number;
+  responseFormat: 'json' | 'toon' | null; // Response format preference for this session
 }
 
 /**
@@ -43,6 +44,7 @@ export class SessionManager {
         activeDatabases: new Map(),
         currentDatabaseAlias: currentAlias,
         lastAccessed: Date.now(),
+        responseFormat: null,
       };
 
       // Load current database if set
@@ -190,6 +192,22 @@ export class SessionManager {
     if (context) {
       context.lastAccessed = Date.now();
     }
+  }
+
+  /**
+   * Set the response format for a session
+   */
+  setResponseFormat(sessionId: string, format: 'json' | 'toon' | null): void {
+    const session = this.getOrCreateSession(sessionId);
+    session.responseFormat = format;
+  }
+
+  /**
+   * Get the response format for a session
+   */
+  getResponseFormat(sessionId: string): 'json' | 'toon' | null {
+    const session = this.sessions.get(sessionId);
+    return session?.responseFormat || null;
   }
 
   /**

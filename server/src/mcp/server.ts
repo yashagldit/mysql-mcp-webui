@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { McpHandlers } from './handlers.js';
 import { getDatabaseManager } from '../db/database-manager.js';
+import { getSessionManager } from './session-manager.js';
 import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
 
@@ -162,8 +163,12 @@ export class McpServer {
         // Set session info for dual-mode handling
         this.handlers.setSession(sessionId || null, 'http');
 
-        // Set response format from header (if provided)
-        this.handlers.setResponseFormat(responseFormat);
+        // Store response format in session (if session exists and format is provided)
+        if (sessionId && responseFormat) {
+          const sessionManager = getSessionManager();
+          sessionManager.setResponseFormat(sessionId, responseFormat);
+        }
+
         let transport: StreamableHTTPServerTransport;
 
         if (sessionId && this.transports.has(sessionId)) {
@@ -176,6 +181,11 @@ export class McpServer {
             onsessioninitialized: (sessionId: string) => {
               console.error(`MCP session initialized with ID: ${sessionId}`);
               this.transports.set(sessionId, transport);
+              // Store response format for new session
+              if (responseFormat) {
+                const sessionManager = getSessionManager();
+                sessionManager.setResponseFormat(sessionId, responseFormat);
+              }
             },
             onsessionclosed: (sessionId: string) => {
               console.error(`MCP session closed: ${sessionId}`);
