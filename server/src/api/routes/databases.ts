@@ -142,13 +142,10 @@ router.post('/:connId/databases/:dbName/activate', async (req: Request, res: Res
       return;
     }
 
-    // Check if database is enabled
+    // Auto-enable if the database is disabled — activating implies the user
+    // wants to use it, so don't make them click "Enable for MCP" first.
     if (!connection.databases[dbName].isEnabled) {
-      res.status(400).json({
-        success: false,
-        error: 'Cannot activate a disabled database. Please enable it first.',
-      });
-      return;
+      dbManager.enableDatabase(connId, dbName);
     }
 
     // Get the database alias for v4.0 alias-based switching

@@ -32,6 +32,18 @@ export class McpServer {
 
     this.handlers = new McpHandlers();
     this.setupHandlers();
+
+    // When the SessionManager evicts a stale/expired session, drop the paired
+    // HTTP transport too — otherwise the next call from that client would
+    // reuse a transport whose session-level state has vanished, which is one
+    // of the ways the server appeared to "get stuck after a few queries".
+    getSessionManager().onSessionRemoved((sessionId) => {
+      const transport = this.transports.get(sessionId);
+      if (transport) {
+        this.transports.delete(sessionId);
+        try { void transport.close(); } catch { /* ignore */ }
+      }
+    });
   }
 
   /**
@@ -170,12 +182,27 @@ export class McpServer {
         }
 
         let transport: StreamableHTTPServerTransport;
+        let isNewTransport = false;
 
         if (sessionId && this.transports.has(sessionId)) {
           // Reuse existing transport
           transport = this.transports.get(sessionId)!;
+        } else if (sessionId && !this.transports.has(sessionId)) {
+          // Client is using a session ID we no longer know about (server
+          // restart, transport cleanup after a prior error, idle eviction).
+          // Tell the client to re-initialize instead of silently hanging.
+          res.status(404).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32001,
+              message: 'Session not found. Please re-initialize the MCP session.',
+            },
+            id: null,
+          });
+          return;
         } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
           // Create new transport for initialization request
+          isNewTransport = true;
           transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (sessionId: string) => {
@@ -190,6 +217,7 @@ export class McpServer {
             onsessionclosed: (sessionId: string) => {
               console.error(`MCP session closed: ${sessionId}`);
               this.transports.delete(sessionId);
+              try { getSessionManager().deleteSession(sessionId); } catch { /* ignore */ }
             },
           });
 
@@ -199,6 +227,7 @@ export class McpServer {
             if (sid && this.transports.has(sid)) {
               console.error(`Transport closed for session ${sid}`);
               this.transports.delete(sid);
+              try { getSessionManager().deleteSession(sid); } catch { /* ignore */ }
             }
           };
 
@@ -217,8 +246,23 @@ export class McpServer {
           return;
         }
 
-        // Handle the request with the transport
-        await transport.handleRequest(req, res, req.body);
+        // Handle the request with the transport. If it throws, the transport
+        // can be left in an indeterminate state — drop it so the next call
+        // forces a clean re-init instead of reusing a broken one.
+        try {
+          await transport.handleRequest(req, res, req.body);
+        } catch (handleError) {
+          const sid = transport.sessionId;
+          if (sid && this.transports.has(sid)) {
+            console.error(`Transport handleRequest failed for session ${sid}, evicting:`, handleError);
+            this.transports.delete(sid);
+            try { getSessionManager().deleteSession(sid); } catch { /* ignore */ }
+            try { await transport.close(); } catch { /* ignore */ }
+          } else if (isNewTransport) {
+            try { await transport.close(); } catch { /* ignore */ }
+          }
+          throw handleError;
+        }
       } catch (error) {
         console.error('MCP HTTP handler error:', error);
         if (!res.headersSent) {

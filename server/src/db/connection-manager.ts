@@ -60,20 +60,38 @@ export class ConnectionManager {
     const password = this.dbManager.getDecryptedPassword(connectionId, this.masterKey);
 
     // Create pool options
+    // Tuned to avoid the "stuck after a few queries" pattern that happens when
+    // intermediate proxies / MySQL itself silently drop idle TCP connections:
+    //  - keepAliveInitialDelay = 10s gives clearer errors (ECONNRESET /
+    //    PROTOCOL_CONNECTION_LOST) instead of indefinite hangs on dead sockets
+    //  - idleTimeout < typical MySQL wait_timeout retires connections before
+    //    the server kills them
+    //  - maxIdle bounds the pool of warm sockets that could go stale
+    //  - connectTimeout fails fast instead of hanging the MCP request
     const poolOptions: PoolOptions = {
       host: connection.host,
       port: connection.port,
       user: connection.user,
       password: password,
       waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
+      connectionLimit: 20,
+      maxIdle: 10,
+      idleTimeout: 5 * 60 * 1000, // 5 minutes
+      queueLimit: 50,
       enableKeepAlive: true,
-      keepAliveInitialDelay: 0,
+      keepAliveInitialDelay: 10000, // 10s
+      connectTimeout: 10000, // 10s
     };
 
     // Create pool
     const pool = mysql.createPool(poolOptions);
+
+    // Surface pool-level errors so dead sockets don't hang the next request
+    pool.on('connection', (conn: any) => {
+      conn.on('error', (err: any) => {
+        console.error(`MySQL connection error on pool ${connectionId}: ${err.code || err.message}`);
+      });
+    });
 
     // Test connection
     try {
