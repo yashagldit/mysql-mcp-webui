@@ -99,8 +99,16 @@ export class QueryExecutor {
    * @param sql SQL query to execute
    * @param connectionId Connection ID (optional for backward compatibility)
    * @param database Database name (optional for backward compatibility)
+   * @param apiKeyId Calling API key (optional). When set and the key is in one
+   *   or more groups, the database must be in one of those groups and the
+   *   merged group permissions are used in place of the per-database perms.
    */
-  async executeQuery(sql: string, connectionId?: string, database?: string): Promise<QueryResult> {
+  async executeQuery(
+    sql: string,
+    connectionId?: string,
+    database?: string,
+    apiKeyId?: string | null
+  ): Promise<QueryResult> {
     const startTime = Date.now();
 
     // If connectionId and database are provided, use them directly
@@ -129,7 +137,27 @@ export class QueryExecutor {
       throw new Error(`Database ${actualDatabase} not found in connection configuration`);
     }
 
-    const permissions = dbConfig.permissions;
+    // v3.3: Group-based access. If the API key is in any groups, scope and
+    // permissions come from those groups; otherwise fall back to per-DB perms.
+    let permissions = dbConfig.permissions;
+    if (apiKeyId) {
+      const accessible = this.dbManager.getAccessibleDatabaseIdsForApiKey(apiKeyId);
+      if (accessible !== null) {
+        const dbId = this.dbManager.getDatabaseId(actualConnectionId, actualDatabase);
+        if (!dbId || !accessible.has(dbId)) {
+          throw new Error(
+            `Access denied: database '${actualDatabase}' is not in any group assigned to this API key`
+          );
+        }
+        const effective = this.dbManager.getEffectivePermissionsForApiKey(apiKeyId, dbId);
+        if (!effective) {
+          throw new Error(
+            `Access denied: database '${actualDatabase}' is not in any group assigned to this API key`
+          );
+        }
+        permissions = effective;
+      }
+    }
 
     // Validate query against permissions
     const validation = this.permissionValidator.validateQuery(sql, permissions);

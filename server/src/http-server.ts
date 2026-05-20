@@ -11,6 +11,7 @@ import databasesRouter from './api/routes/databases.js';
 import queryRouter from './api/routes/query.js';
 import settingsRouter from './api/routes/settings.js';
 import apiKeysRouter from './api/routes/api-keys.js';
+import groupsRouter from './api/routes/groups.js';
 import logsRouter from './api/routes/logs.js';
 import authRouter from './api/routes/auth.js';
 import usersRouter from './api/routes/users.js';
@@ -91,6 +92,7 @@ export function createHttpServer(config: EnvironmentConfig): Express {
   app.use('/api/browse', smartAuthMiddleware, browseRouter);
   app.use('/api', smartAuthMiddleware, settingsRouter);
   app.use('/api/keys', smartAuthMiddleware, apiKeysRouter);
+  app.use('/api/groups', smartAuthMiddleware, groupsRouter);
   app.use('/api/logs', smartAuthMiddleware, logsRouter);
   app.use('/api/users', smartAuthMiddleware, usersRouter);
 

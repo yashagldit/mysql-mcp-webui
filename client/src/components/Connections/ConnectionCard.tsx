@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Server, Trash2, Edit, Play, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Server, Trash2, Edit, Play, RefreshCw, Eye, EyeOff, Copy } from 'lucide-react';
 import { Card, Badge, Button, Alert } from '../Common';
 import { EditConnectionModal } from './EditConnectionModal';
+import { AddConnectionModal } from './AddConnectionModal';
 import {
   useDeleteConnection,
   useTestConnection,
@@ -17,6 +18,7 @@ interface ConnectionCardProps {
 
 export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) => {
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const deleteMutation = useDeleteConnection();
@@ -149,10 +151,20 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
             </Button>
             <Button
               size="sm"
+              variant="ghost"
+              onClick={() => setShowDuplicateModal(true)}
+              fullWidth
+            >
+              <Copy className="w-4 h-4 mr-1" />
+              Duplicate
+            </Button>
+            <Button
+              size="sm"
               variant="danger"
               onClick={() => setShowDeleteConfirm(true)}
               loading={deleteMutation.isPending}
               fullWidth
+              className="col-span-2"
             >
               <Trash2 className="w-4 h-4 mr-1" />
               Delete
@@ -184,6 +196,18 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection }) =>
         connection={connection}
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
+      />
+
+      <AddConnectionModal
+        isOpen={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        title={`Duplicate Connection: ${connection.name}`}
+        prefill={{
+          name: `${connection.name} (copy)`,
+          host: connection.host,
+          port: connection.port,
+          user: connection.user,
+        }}
       />
 
       {showDeleteConfirm && (

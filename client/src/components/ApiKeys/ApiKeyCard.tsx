@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Key, Trash2, Edit, FileText } from 'lucide-react';
+import { Key, Trash2, Edit, FileText, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Badge, Button } from '../Common';
 import { EditKeyModal } from './EditKeyModal';
@@ -56,6 +56,23 @@ export const ApiKeyCard: React.FC<ApiKeyCardProps> = ({ apiKey }) => {
               <span className="text-gray-900 dark:text-gray-100">{formatRelativeTime(apiKey.last_used_at)}</span>
             </div>
           )}
+          <div>
+            <div className="flex items-center text-gray-600 dark:text-gray-400 mb-1">
+              <Layers className="w-3.5 h-3.5 mr-1" />
+              <span>Groups:</span>
+            </div>
+            {apiKey.groups && apiKey.groups.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {apiKey.groups.map((g) => (
+                  <Badge key={g.id} size="sm" variant="info">{g.name}</Badge>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                Unrestricted (all databases)
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -66,7 +83,7 @@ export const ApiKeyCard: React.FC<ApiKeyCardProps> = ({ apiKey }) => {
             fullWidth
           >
             <Edit className="w-4 h-4 mr-1" />
-            Rename
+            Edit
           </Button>
           <Button
             size="sm"

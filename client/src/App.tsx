@@ -11,6 +11,7 @@ import { DatabasesPage } from './pages/DatabasesPage';
 import { BrowserPage } from './pages/BrowserPage';
 import { QueryPage } from './pages/QueryPage';
 import { ApiKeysPage } from './pages/ApiKeysPage';
+import { GroupsPage } from './pages/GroupsPage';
 import { LogsPage } from './pages/LogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useSettings } from './hooks/useActiveState';
@@ -43,6 +44,7 @@ function AppContent() {
                   <Route path="/browse" element={<BrowserPage />} />
                   <Route path="/query" element={<QueryPage />} />
                   <Route path="/api-keys" element={<ApiKeysPage />} />
+                  <Route path="/groups" element={<GroupsPage />} />
                   <Route path="/logs" element={<LogsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>

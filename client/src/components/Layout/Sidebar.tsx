@@ -9,6 +9,7 @@ import {
   Key,
   FileText,
   Table2,
+  Layers,
   X,
 } from 'lucide-react';
 
@@ -25,6 +26,7 @@ const navItems: NavItem[] = [
   { path: '/browse', label: 'Browse Data', icon: <Table2 className="w-5 h-5" /> },
   { path: '/query', label: 'Query Tester', icon: <Play className="w-5 h-5" /> },
   { path: '/api-keys', label: 'API Keys', icon: <Key className="w-5 h-5" /> },
+  { path: '/groups', label: 'DB Groups', icon: <Layers className="w-5 h-5" /> },
   { path: '/logs', label: 'Request Logs', icon: <FileText className="w-5 h-5" /> },
   { path: '/settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
 ];

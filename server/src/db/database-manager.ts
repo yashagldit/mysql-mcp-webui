@@ -43,6 +43,27 @@ export interface RequestLog {
   timestamp: number;
 }
 
+export interface DatabaseGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  permissions: Permissions;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface DatabaseGroupWithDetails extends DatabaseGroup {
+  databaseIds: string[];
+  databases: Array<{
+    id: string;
+    connectionId: string;
+    connectionName: string;
+    database: string;
+    alias: string;
+  }>;
+  apiKeyCount: number;
+}
+
 export class DatabaseManager {
   private db: Database.Database;
 
@@ -1143,6 +1164,7 @@ export class DatabaseManager {
    * Get all databases with their status (active, current, etc.)
    */
   getAllDatabasesWithStatus(): Array<{
+    id: string;
     connectionId: string;
     connectionName: string;
     database: string;
@@ -1158,6 +1180,7 @@ export class DatabaseManager {
 
     const stmt = this.db.prepare(`
       SELECT
+        d.id,
         d.connection_id,
         c.name as connection_name,
         d.name,
@@ -1181,6 +1204,7 @@ export class DatabaseManager {
     const rows = stmt.all() as any[];
 
     return rows.map((row) => ({
+      id: row.id,
       connectionId: row.connection_id,
       connectionName: row.connection_name,
       database: row.name,
@@ -1504,6 +1528,384 @@ export class DatabaseManager {
    */
   setMcpEnabled(enabled: boolean): void {
     this.setSetting('mcp_enabled', enabled ? 'true' : 'false');
+  }
+
+  // ============================================================================
+  // Database Groups (v3.3)
+  // ============================================================================
+
+  private groupRowToGroup(row: any): DatabaseGroup {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      permissions: this.dbRowToPermissions(row),
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  }
+
+  /**
+   * Create a new database group
+   */
+  createGroup(
+    name: string,
+    description: string | null,
+    permissions: Permissions
+  ): DatabaseGroup {
+    const id = `grp_${generateToken(12)}`;
+    const now = Date.now();
+
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO database_groups (
+          id, name, description,
+          select_perm, insert_perm, update_perm, delete_perm,
+          create_perm, alter_perm, drop_perm, truncate_perm,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      stmt.run(
+        id,
+        name,
+        description,
+        permissions.select ? 1 : 0,
+        permissions.insert ? 1 : 0,
+        permissions.update ? 1 : 0,
+        permissions.delete ? 1 : 0,
+        permissions.create ? 1 : 0,
+        permissions.alter ? 1 : 0,
+        permissions.drop ? 1 : 0,
+        permissions.truncate ? 1 : 0,
+        now,
+        now
+      );
+    });
+
+    return {
+      id,
+      name,
+      description,
+      permissions,
+      created_at: now,
+      updated_at: now,
+    };
+  }
+
+  /**
+   * Get all groups (with database list and api key count)
+   */
+  getAllGroups(): DatabaseGroupWithDetails[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM database_groups
+      ORDER BY name ASC
+    `);
+
+    const rows = stmt.all() as any[];
+
+    return rows.map((row) => {
+      const group = this.groupRowToGroup(row);
+      const databases = this.getGroupDatabaseDetails(group.id);
+      const apiKeyCount = this.getGroupApiKeyCount(group.id);
+
+      return {
+        ...group,
+        databaseIds: databases.map((d) => d.id),
+        databases,
+        apiKeyCount,
+      };
+    });
+  }
+
+  /**
+   * Get a single group with full details
+   */
+  getGroup(id: string): DatabaseGroupWithDetails | null {
+    const stmt = this.db.prepare(`
+      SELECT * FROM database_groups
+      WHERE id = ?
+    `);
+    const row = stmt.get(id) as any;
+    if (!row) return null;
+
+    const group = this.groupRowToGroup(row);
+    const databases = this.getGroupDatabaseDetails(group.id);
+    const apiKeyCount = this.getGroupApiKeyCount(group.id);
+
+    return {
+      ...group,
+      databaseIds: databases.map((d) => d.id),
+      databases,
+      apiKeyCount,
+    };
+  }
+
+  /**
+   * Update a group's name, description, and/or permissions
+   */
+  updateGroup(
+    id: string,
+    updates: { name?: string; description?: string | null; permissions?: Permissions }
+  ): void {
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      params.push(updates.name);
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      params.push(updates.description);
+    }
+    if (updates.permissions !== undefined) {
+      const p = updates.permissions;
+      fields.push(
+        'select_perm = ?',
+        'insert_perm = ?',
+        'update_perm = ?',
+        'delete_perm = ?',
+        'create_perm = ?',
+        'alter_perm = ?',
+        'drop_perm = ?',
+        'truncate_perm = ?'
+      );
+      params.push(
+        p.select ? 1 : 0,
+        p.insert ? 1 : 0,
+        p.update ? 1 : 0,
+        p.delete ? 1 : 0,
+        p.create ? 1 : 0,
+        p.alter ? 1 : 0,
+        p.drop ? 1 : 0,
+        p.truncate ? 1 : 0
+      );
+    }
+
+    if (fields.length === 0) return;
+
+    fields.push('updated_at = ?');
+    params.push(Date.now());
+    params.push(id);
+
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        UPDATE database_groups
+        SET ${fields.join(', ')}
+        WHERE id = ?
+      `);
+      stmt.run(...params);
+    });
+  }
+
+  /**
+   * Delete a group (cascades to junction tables via ON DELETE CASCADE)
+   */
+  deleteGroup(id: string): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare('DELETE FROM database_groups WHERE id = ?');
+      stmt.run(id);
+    });
+  }
+
+  /**
+   * Replace the set of databases assigned to a group
+   */
+  setGroupDatabases(groupId: string, databaseIds: string[]): void {
+    this.executeWithRetry(() => {
+      const txn = this.db.transaction((ids: string[]) => {
+        this.db.prepare('DELETE FROM group_databases WHERE group_id = ?').run(groupId);
+        if (ids.length > 0) {
+          const insert = this.db.prepare(
+            'INSERT OR IGNORE INTO group_databases (group_id, database_id) VALUES (?, ?)'
+          );
+          for (const dbId of ids) {
+            insert.run(groupId, dbId);
+          }
+        }
+        // Touch updated_at
+        this.db
+          .prepare('UPDATE database_groups SET updated_at = ? WHERE id = ?')
+          .run(Date.now(), groupId);
+      });
+      txn(databaseIds);
+    });
+  }
+
+  /**
+   * Get database IDs belonging to a group
+   */
+  getGroupDatabaseIds(groupId: string): string[] {
+    const stmt = this.db.prepare('SELECT database_id FROM group_databases WHERE group_id = ?');
+    return (stmt.all(groupId) as Array<{ database_id: string }>).map((r) => r.database_id);
+  }
+
+  /**
+   * Get hydrated database rows belonging to a group
+   */
+  getGroupDatabaseDetails(groupId: string): Array<{
+    id: string;
+    connectionId: string;
+    connectionName: string;
+    database: string;
+    alias: string;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT d.id, d.connection_id, d.name, d.alias, c.name AS connection_name
+      FROM group_databases gd
+      JOIN databases d ON gd.database_id = d.id
+      JOIN connections c ON d.connection_id = c.id
+      WHERE gd.group_id = ?
+      ORDER BY c.name, d.name
+    `);
+
+    return (stmt.all(groupId) as any[]).map((row) => ({
+      id: row.id,
+      connectionId: row.connection_id,
+      connectionName: row.connection_name,
+      database: row.name,
+      alias: row.alias,
+    }));
+  }
+
+  /**
+   * Replace the set of groups assigned to an API key
+   */
+  setApiKeyGroups(apiKeyId: string, groupIds: string[]): void {
+    this.executeWithRetry(() => {
+      const txn = this.db.transaction((ids: string[]) => {
+        this.db.prepare('DELETE FROM api_key_groups WHERE api_key_id = ?').run(apiKeyId);
+        if (ids.length > 0) {
+          const insert = this.db.prepare(
+            'INSERT OR IGNORE INTO api_key_groups (api_key_id, group_id) VALUES (?, ?)'
+          );
+          for (const groupId of ids) {
+            insert.run(apiKeyId, groupId);
+          }
+        }
+      });
+      txn(groupIds);
+    });
+  }
+
+  /**
+   * Get the IDs of groups assigned to an API key
+   */
+  getApiKeyGroupIds(apiKeyId: string): string[] {
+    const stmt = this.db.prepare('SELECT group_id FROM api_key_groups WHERE api_key_id = ?');
+    return (stmt.all(apiKeyId) as Array<{ group_id: string }>).map((r) => r.group_id);
+  }
+
+  /**
+   * Get the groups (with details) assigned to an API key
+   */
+  getApiKeyGroups(apiKeyId: string): DatabaseGroup[] {
+    const stmt = this.db.prepare(`
+      SELECT dg.*
+      FROM api_key_groups akg
+      JOIN database_groups dg ON akg.group_id = dg.id
+      WHERE akg.api_key_id = ?
+      ORDER BY dg.name ASC
+    `);
+    return (stmt.all(apiKeyId) as any[]).map((row) => this.groupRowToGroup(row));
+  }
+
+  /**
+   * Count how many API keys are assigned to a group
+   */
+  getGroupApiKeyCount(groupId: string): number {
+    const stmt = this.db.prepare(
+      'SELECT COUNT(*) AS count FROM api_key_groups WHERE group_id = ?'
+    );
+    const row = stmt.get(groupId) as { count: number };
+    return row.count;
+  }
+
+  /**
+   * Resolve which databases an API key can access.
+   * - Returns `null` if the key has no group assignments (backward-compat:
+   *   unrestricted access to all enabled databases).
+   * - Returns a Set of database IDs if the key has one or more groups.
+   *   An empty Set means "explicitly scoped to zero databases".
+   */
+  getAccessibleDatabaseIdsForApiKey(apiKeyId: string | null): Set<string> | null {
+    if (!apiKeyId) return null;
+
+    const groupIds = this.getApiKeyGroupIds(apiKeyId);
+    if (groupIds.length === 0) return null;
+
+    const placeholders = groupIds.map(() => '?').join(',');
+    const stmt = this.db.prepare(`
+      SELECT DISTINCT database_id
+      FROM group_databases
+      WHERE group_id IN (${placeholders})
+    `);
+    const rows = stmt.all(...groupIds) as Array<{ database_id: string }>;
+    return new Set(rows.map((r) => r.database_id));
+  }
+
+  /**
+   * Compute the effective permissions for an API key against a database.
+   * When the key has groups, returns the union (OR) of group permissions
+   * across groups that contain this database. Returns null if the key has
+   * groups but none of them contain this database (= access denied).
+   * Returns null if the key is null (caller should fall back to per-DB perms).
+   */
+  getEffectivePermissionsForApiKey(
+    apiKeyId: string | null,
+    databaseId: string
+  ): Permissions | null {
+    if (!apiKeyId) return null;
+
+    const groupIds = this.getApiKeyGroupIds(apiKeyId);
+    if (groupIds.length === 0) return null;
+
+    const placeholders = groupIds.map(() => '?').join(',');
+    const stmt = this.db.prepare(`
+      SELECT dg.select_perm, dg.insert_perm, dg.update_perm, dg.delete_perm,
+             dg.create_perm, dg.alter_perm, dg.drop_perm, dg.truncate_perm
+      FROM database_groups dg
+      JOIN group_databases gd ON gd.group_id = dg.id
+      WHERE gd.database_id = ? AND dg.id IN (${placeholders})
+    `);
+
+    const rows = stmt.all(databaseId, ...groupIds) as any[];
+    if (rows.length === 0) return null;
+
+    return rows.reduce<Permissions>(
+      (acc, row) => ({
+        select: acc.select || Boolean(row.select_perm),
+        insert: acc.insert || Boolean(row.insert_perm),
+        update: acc.update || Boolean(row.update_perm),
+        delete: acc.delete || Boolean(row.delete_perm),
+        create: acc.create || Boolean(row.create_perm),
+        alter: acc.alter || Boolean(row.alter_perm),
+        drop: acc.drop || Boolean(row.drop_perm),
+        truncate: acc.truncate || Boolean(row.truncate_perm),
+      }),
+      {
+        select: false,
+        insert: false,
+        update: false,
+        delete: false,
+        create: false,
+        alter: false,
+        drop: false,
+        truncate: false,
+      }
+    );
+  }
+
+  /**
+   * Look up a database ID by (connectionId, name).
+   */
+  getDatabaseId(connectionId: string, databaseName: string): string | null {
+    const stmt = this.db.prepare(
+      'SELECT id FROM databases WHERE connection_id = ? AND name = ?'
+    );
+    const row = stmt.get(connectionId, databaseName) as { id: string } | undefined;
+    return row?.id || null;
   }
 }
 
