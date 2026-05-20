@@ -13,6 +13,10 @@ const UpdateApiKeySchema = z.object({
   name: z.string().min(1).max(100),
 });
 
+const SetApiKeyGroupsSchema = z.object({
+  groupIds: z.array(z.string()),
+});
+
 /**
  * GET /api/keys
  * List all API keys
@@ -29,6 +33,10 @@ router.get('/', (req: Request, res: Response) => {
       created_at: key.created_at,
       last_used_at: key.last_used_at,
       is_active: key.is_active,
+      groups: dbManager.getApiKeyGroups(key.id).map((g) => ({
+        id: g.id,
+        name: g.name,
+      })),
     }));
 
     res.json({
@@ -106,6 +114,10 @@ router.get('/:id', (req: Request, res: Response) => {
         created_at: apiKey.created_at,
         last_used_at: apiKey.last_used_at,
         is_active: apiKey.is_active,
+        groups: dbManager.getApiKeyGroups(apiKey.id).map((g) => ({
+          id: g.id,
+          name: g.name,
+        })),
       },
     });
   } catch (error) {
@@ -248,6 +260,62 @@ router.get('/:id/logs', (req: Request, res: Response) => {
       success: true,
       data: logs,
     });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/keys/:id/groups
+ * Get groups assigned to an API key
+ */
+router.get('/:id/groups', (req: Request, res: Response) => {
+  try {
+    const apiKey = dbManager.getApiKey(req.params.id);
+    if (!apiKey) {
+      res.status(404).json({ success: false, error: 'API key not found' });
+      return;
+    }
+
+    const groups = dbManager.getApiKeyGroups(req.params.id);
+    res.json({ success: true, data: groups });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * PUT /api/keys/:id/groups
+ * Replace the set of groups assigned to an API key
+ */
+router.put('/:id/groups', (req: Request, res: Response) => {
+  try {
+    const validation = SetApiKeyGroupsSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid request body',
+        details: validation.error.errors,
+      });
+      return;
+    }
+
+    const apiKey = dbManager.getApiKey(req.params.id);
+    if (!apiKey) {
+      res.status(404).json({ success: false, error: 'API key not found' });
+      return;
+    }
+
+    dbManager.setApiKeyGroups(req.params.id, validation.data.groupIds);
+    const groups = dbManager.getApiKeyGroups(req.params.id);
+
+    res.json({ success: true, data: groups });
   } catch (error) {
     res.status(500).json({
       success: false,

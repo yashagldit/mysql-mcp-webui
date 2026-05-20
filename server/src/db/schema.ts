@@ -90,6 +90,44 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- Database Groups Table (v3.3)
+-- Groups bundle databases and a single permission set; API keys assigned to a
+-- group can only access that group's databases, with the group's permissions
+-- overriding the per-database permissions.
+CREATE TABLE IF NOT EXISTS database_groups (
+  id TEXT PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  description TEXT,
+  select_perm INTEGER DEFAULT 1,
+  insert_perm INTEGER DEFAULT 0,
+  update_perm INTEGER DEFAULT 0,
+  delete_perm INTEGER DEFAULT 0,
+  create_perm INTEGER DEFAULT 0,
+  alter_perm INTEGER DEFAULT 0,
+  drop_perm INTEGER DEFAULT 0,
+  truncate_perm INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+-- Junction: which databases belong to each group (M:N)
+CREATE TABLE IF NOT EXISTS group_databases (
+  group_id TEXT NOT NULL,
+  database_id TEXT NOT NULL,
+  PRIMARY KEY (group_id, database_id),
+  FOREIGN KEY (group_id) REFERENCES database_groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (database_id) REFERENCES databases(id) ON DELETE CASCADE
+);
+
+-- Junction: which groups an API key has access to (M:N)
+CREATE TABLE IF NOT EXISTS api_key_groups (
+  api_key_id TEXT NOT NULL,
+  group_id TEXT NOT NULL,
+  PRIMARY KEY (api_key_id, group_id),
+  FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE,
+  FOREIGN KEY (group_id) REFERENCES database_groups(id) ON DELETE CASCADE
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
@@ -101,6 +139,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_databases_unique_name ON databases(connect
 CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_user_id ON request_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_group_databases_database_id ON group_databases(database_id);
+CREATE INDEX IF NOT EXISTS idx_api_key_groups_group_id ON api_key_groups(group_id);
 -- Note: idx_connections_is_enabled, idx_databases_is_enabled, idx_databases_unique_alias, and idx_databases_last_accessed are created by migration after adding their respective columns
 `;
 

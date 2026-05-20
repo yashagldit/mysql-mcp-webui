@@ -18,6 +18,9 @@ import type {
   CreateApiKeyRequest,
   CreateApiKeyResponse,
   UpdateApiKeyRequest,
+  DatabaseGroup,
+  CreateGroupRequest,
+  UpdateGroupRequest,
   RequestLog,
   LogsStats,
   TableListResponse,
@@ -161,6 +164,7 @@ class ApiClient {
   }
 
   async getAllDatabases(): Promise<Array<{
+    id: string;
     connectionId: string;
     connectionName: string;
     database: string;
@@ -255,6 +259,45 @@ class ApiClient {
 
   async getApiKeyLogs(id: string): Promise<RequestLog[]> {
     const { data } = await this.client.get<ApiResponse<RequestLog[]>>(`/keys/${id}/logs`);
+    return data.data;
+  }
+
+  async getApiKeyGroups(id: string): Promise<Array<{ id: string; name: string }>> {
+    const { data } = await this.client.get<ApiResponse<Array<{ id: string; name: string }>>>(`/keys/${id}/groups`);
+    return data.data;
+  }
+
+  async setApiKeyGroups(id: string, groupIds: string[]): Promise<Array<{ id: string; name: string }>> {
+    const { data } = await this.client.put<ApiResponse<Array<{ id: string; name: string }>>>(
+      `/keys/${id}/groups`,
+      { groupIds }
+    );
+    return data.data;
+  }
+
+  // Database Group endpoints (v3.3)
+  async getGroups(): Promise<DatabaseGroup[]> {
+    const { data } = await this.client.get<ApiResponse<DatabaseGroup[]>>('/groups');
+    return data.data;
+  }
+
+  async getGroup(id: string): Promise<DatabaseGroup> {
+    const { data } = await this.client.get<ApiResponse<DatabaseGroup>>(`/groups/${id}`);
+    return data.data;
+  }
+
+  async createGroup(request: CreateGroupRequest): Promise<DatabaseGroup> {
+    const { data } = await this.client.post<ApiResponse<DatabaseGroup>>('/groups', request);
+    return data.data;
+  }
+
+  async updateGroup(id: string, request: UpdateGroupRequest): Promise<DatabaseGroup> {
+    const { data } = await this.client.put<ApiResponse<DatabaseGroup>>(`/groups/${id}`, request);
+    return data.data;
+  }
+
+  async deleteGroup(id: string): Promise<{ message: string }> {
+    const { data } = await this.client.delete<ApiResponse<{ message: string }>>(`/groups/${id}`);
     return data.data;
   }
 

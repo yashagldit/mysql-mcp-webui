@@ -172,6 +172,7 @@ export interface ApiKey {
   created_at: number;
   last_used_at?: number;
   isActive: boolean;
+  groups?: Array<{ id: string; name: string }>;
 }
 
 export interface CreateApiKeyRequest {
@@ -188,6 +189,39 @@ export interface CreateApiKeyResponse {
 
 export interface UpdateApiKeyRequest {
   name: string;
+}
+
+// Database Group types (v3.3)
+export interface DatabaseGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  permissions: DatabasePermissions;
+  databaseIds: string[];
+  databases: Array<{
+    id: string;
+    connectionId: string;
+    connectionName: string;
+    database: string;
+    alias: string;
+  }>;
+  apiKeyCount: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string | null;
+  permissions: DatabasePermissions;
+  databaseIds?: string[];
+}
+
+export interface UpdateGroupRequest {
+  name?: string;
+  description?: string | null;
+  permissions?: DatabasePermissions;
+  databaseIds?: string[];
 }
 
 // Request Log types (v2.0)

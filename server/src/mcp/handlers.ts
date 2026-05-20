@@ -145,6 +145,32 @@ Once configured, you'll be able to query your databases through Claude!
   }
 
   /**
+   * v3.3: Verify the current API key is allowed to access this database
+   * based on its group assignments. Returns an error result if access is
+   * denied, or null if access is permitted (including unrestricted keys).
+   */
+  private checkDatabaseAccess(connectionId: string, databaseName: string): CallToolResult | null {
+    if (!this.currentApiKeyId) return null;
+
+    const accessible = this.dbManager.getAccessibleDatabaseIdsForApiKey(this.currentApiKeyId);
+    if (accessible === null) return null; // No group assignments = unrestricted
+
+    const dbId = this.dbManager.getDatabaseId(connectionId, databaseName);
+    if (!dbId || !accessible.has(dbId)) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: Access denied. This API key is not assigned to any group containing database '${databaseName}'.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    return null;
+  }
+
+  /**
    * Activate a database by alias (dual-mode: stdio or HTTP session)
    */
   private async activateDatabase(alias: string): Promise<void> {
@@ -369,11 +395,23 @@ Once configured, you'll be able to query your databases through Claude!
         };
       }
 
+      // v3.3: Enforce group-based access before activating the database
+      const accessCheck = this.checkDatabaseAccess(dbContext.connectionId, dbContext.database);
+      if (accessCheck) {
+        return accessCheck;
+      }
+
       // Auto-activate the database
       await this.activateDatabase(alias);
 
-      // Execute query with explicit connection and database
-      const result = await this.queryExecutor.executeQuery(sql, dbContext.connectionId, dbContext.database);
+      // Execute query with explicit connection and database, passing the
+      // calling API key so group-scoped permissions can apply.
+      const result = await this.queryExecutor.executeQuery(
+        sql,
+        dbContext.connectionId,
+        dbContext.database,
+        this.currentApiKeyId
+      );
 
       // Format result as text
       const resultText = this.formatQueryResult(result, dbContext);
@@ -435,6 +473,12 @@ Once a connection is added, databases will be automatically discovered and avail
       const activeDbs = this.getActiveDatabases();
       const activeAliases = new Set(activeDbs.map((db: any) => db.alias));
 
+      // v3.3: If the calling API key is in any groups, scope the listing to
+      // databases in those groups and surface the group-merged permissions.
+      const accessibleDbIds = this.dbManager.getAccessibleDatabaseIdsForApiKey(
+        this.currentApiKeyId
+      );
+
       // Group databases by connection
       const grouped: Record<string, any[]> = {};
 
@@ -446,6 +490,20 @@ Once a connection is added, databases will be automatically discovered and avail
         const connection = this.dbManager.getConnection(db.connectionId);
         if (!connection || !connection.isEnabled) continue;
 
+        // v3.3: Skip databases outside the API key's group scope
+        let effectivePermissions = db.permissions;
+        if (accessibleDbIds !== null) {
+          const dbId = this.dbManager.getDatabaseId(db.connectionId, db.database);
+          if (!dbId || !accessibleDbIds.has(dbId)) continue;
+
+          const merged = this.dbManager.getEffectivePermissionsForApiKey(
+            this.currentApiKeyId,
+            dbId
+          );
+          if (!merged) continue;
+          effectivePermissions = merged;
+        }
+
         if (!grouped[db.connectionName]) {
           grouped[db.connectionName] = [];
         }
@@ -455,7 +513,7 @@ Once a connection is added, databases will be automatically discovered and avail
           name: db.database,
           isActive: activeAliases.has(db.alias),
           isCurrent: currentDb?.alias === db.alias,
-          permissions: db.permissions,
+          permissions: effectivePermissions,
         };
 
         // Add metadata if requested
@@ -570,6 +628,25 @@ Once a connection is added, databases will be automatically discovered and avail
         };
       }
 
+      // v3.3: Enforce group-based access for the calling API key
+      const accessCheck = this.checkDatabaseAccess(dbContext.connectionId, dbContext.database);
+      if (accessCheck) return accessCheck;
+
+      // v3.3: Surface group-merged permissions when applicable
+      let displayPermissions = dbConfig.permissions;
+      if (this.currentApiKeyId) {
+        const dbId = this.dbManager.getDatabaseId(dbContext.connectionId, dbContext.database);
+        if (dbId) {
+          const merged = this.dbManager.getEffectivePermissionsForApiKey(
+            this.currentApiKeyId,
+            dbId
+          );
+          if (merged) {
+            displayPermissions = merged;
+          }
+        }
+      }
+
       // Get previous current database
       const previousDb = this.getCurrentDatabase();
 
@@ -582,7 +659,7 @@ Once a connection is added, databases will be automatically discovered and avail
         alias,
         dbContext.database,
         dbContext.connectionName,
-        dbConfig.permissions
+        displayPermissions
       );
 
       return {
