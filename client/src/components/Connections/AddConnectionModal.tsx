@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Input, Button, Alert } from '../Common';
 import { useCreateConnection, useTestConnection } from '../../hooks/useConnections';
 import type { CreateConnectionRequest } from '../../types';
@@ -6,20 +6,45 @@ import type { CreateConnectionRequest } from '../../types';
 interface AddConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Optional initial values (used by "Duplicate"). Password is never prefilled. */
+  prefill?: Partial<Omit<CreateConnectionRequest, 'password'>>;
+  title?: string;
 }
 
-export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({ isOpen, onClose }) => {
+const EMPTY_FORM: CreateConnectionRequest = {
+  name: '',
+  host: 'localhost',
+  port: 3306,
+  user: 'root',
+  password: '',
+};
+
+export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({
+  isOpen,
+  onClose,
+  prefill,
+  title,
+}) => {
   const [formData, setFormData] = useState<CreateConnectionRequest>({
-    name: '',
-    host: 'localhost',
-    port: 3306,
-    user: 'root',
-    password: '',
+    ...EMPTY_FORM,
+    ...(prefill ?? {}),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createMutation = useCreateConnection();
   const testMutation = useTestConnection();
+
+  // Reset form whenever the modal opens (and apply any new prefill values).
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ ...EMPTY_FORM, ...(prefill ?? {}), password: '' });
+      setErrors({});
+      createMutation.reset();
+      testMutation.reset();
+    }
+    // We intentionally don't depend on the mutation refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, prefill]);
 
   const handleChange = (field: keyof CreateConnectionRequest, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -48,20 +73,14 @@ export const AddConnectionModal: React.FC<AddConnectionModalProps> = ({ isOpen, 
       await createMutation.mutateAsync(formData);
       onClose();
       // Reset form
-      setFormData({
-        name: '',
-        host: 'localhost',
-        port: 3306,
-        user: 'root',
-        password: '',
-      });
+      setFormData({ ...EMPTY_FORM });
     } catch (error) {
       console.error('Failed to create connection:', error);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add MySQL Connection" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title={title ?? 'Add MySQL Connection'} size="md">
       {createMutation.isError && (
         <Alert type="error" className="mb-4">
           Failed to create connection. Please check your details and try again.
