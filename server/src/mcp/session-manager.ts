@@ -21,6 +21,25 @@ export class SessionManager {
   private readonly SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
   private readonly CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
   private config = loadEnvironment();
+  // Listeners that get notified when a session is removed (used by the MCP
+  // HTTP transport to drop its companion StreamableHTTPServerTransport).
+  private removalListeners: Set<(sessionId: string) => void> = new Set();
+
+  /**
+   * Subscribe to session removal events
+   */
+  onSessionRemoved(listener: (sessionId: string) => void): () => void {
+    this.removalListeners.add(listener);
+    return () => this.removalListeners.delete(listener);
+  }
+
+  private notifyRemoval(sessionId: string): void {
+    for (const listener of this.removalListeners) {
+      try { listener(sessionId); } catch (err) {
+        console.error('Session removal listener failed:', err);
+      }
+    }
+  }
 
   constructor() {
     // Start cleanup timer
@@ -303,8 +322,10 @@ export class SessionManager {
    * Delete a session
    */
   deleteSession(sessionId: string): void {
-    this.sessions.delete(sessionId);
-    console.log(`Deleted session: ${sessionId}`);
+    if (this.sessions.delete(sessionId)) {
+      console.log(`Deleted session: ${sessionId}`);
+      this.notifyRemoval(sessionId);
+    }
   }
 
   /**
@@ -327,17 +348,20 @@ export class SessionManager {
   cleanupStaleSessions(): void {
     const now = Date.now();
     const cutoff = now - this.SESSION_TIMEOUT;
-    let cleanedCount = 0;
+    const removed: string[] = [];
 
     for (const [sessionId, session] of this.sessions.entries()) {
       if (session.lastAccessed < cutoff) {
         this.sessions.delete(sessionId);
-        cleanedCount++;
+        removed.push(sessionId);
       }
     }
 
-    if (cleanedCount > 0) {
-      console.log(`Cleaned up ${cleanedCount} stale sessions`);
+    if (removed.length > 0) {
+      console.log(`Cleaned up ${removed.length} stale sessions`);
+      for (const sid of removed) {
+        this.notifyRemoval(sid);
+      }
     }
   }
 

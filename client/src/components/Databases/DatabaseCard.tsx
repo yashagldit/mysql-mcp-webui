@@ -55,17 +55,16 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
   };
 
   const handleBrowse = async () => {
-    // Activate database if not already active, then navigate to browse page
-    if (!database.isActive) {
-      try {
-        await activateMutation.mutateAsync({
-          connectionId,
-          dbName: database.name,
-        });
-      } catch (error) {
-        console.error('Failed to activate database:', error);
-        return;
-      }
+    // Always activate so Browse switches the active database in one click
+    // (the activate endpoint is idempotent and auto-enables if disabled).
+    try {
+      await activateMutation.mutateAsync({
+        connectionId,
+        dbName: database.name,
+      });
+    } catch (error) {
+      console.error('Failed to activate database:', error);
+      return;
     }
     navigate('/browse');
   };
@@ -163,23 +162,21 @@ export const DatabaseCard: React.FC<DatabaseCardProps> = ({ database, connection
               onClick={handleActivate}
               loading={activateMutation.isPending}
               fullWidth
-              disabled={!database.isEnabled}
             >
               <Check className="w-4 h-4 mr-1" />
-              Activate
+              Set as Active
             </Button>
           )}
           <div className="grid grid-cols-2 gap-2">
             <Button
               size="sm"
-              variant="secondary"
+              variant={database.isActive ? 'primary' : 'secondary'}
               onClick={handleBrowse}
               loading={activateMutation.isPending}
               fullWidth
-              disabled={!database.isEnabled}
             >
               <Table2 className="w-4 h-4 mr-1" />
-              Browse
+              {database.isActive ? 'Browse' : 'Switch & Browse'}
             </Button>
             <Button
               size="sm"

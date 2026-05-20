@@ -5,6 +5,41 @@ import { getConnectionManager } from './connection-manager.js';
 import { getSessionManager } from '../mcp/session-manager.js';
 import { getDatabaseManager } from './database-manager.js';
 
+// MySQL error codes that mean the underlying socket is unusable. When we see
+// these we destroy the connection rather than returning it to the pool, so a
+// dead socket can't be handed to the next query (the failure mode behind
+// "MCP gets stuck after a few queries").
+const FATAL_CONN_ERRORS = new Set([
+  'PROTOCOL_CONNECTION_LOST',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EPIPE',
+  'ER_SERVER_SHUTDOWN',
+  'PROTOCOL_PACKETS_OUT_OF_ORDER',
+  'PROTOCOL_INCORRECT_PACKET_SEQUENCE',
+]);
+
+function isFatalConnectionError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const code = (err as { code?: string }).code;
+  return code !== undefined && FATAL_CONN_ERRORS.has(code);
+}
+
+function safeReleaseConnection(connection: PoolConnection | null, broken: boolean): void {
+  if (!connection) return;
+  try {
+    if (broken) {
+      connection.destroy();
+    } else {
+      connection.release();
+    }
+  } catch (releaseError) {
+    // Last-ditch destroy if release fails — we never want to leak the slot
+    try { connection.destroy(); } catch { /* ignore */ }
+  }
+}
+
 export class QueryExecutor {
   private permissionValidator = getPermissionValidator();
   private connectionManager = getConnectionManager();
@@ -123,9 +158,12 @@ export class QueryExecutor {
    * Execute a read-only query (SELECT) with READ ONLY transaction
    */
   private async executeReadQuery(pool: Pool, database: string, sql: string): Promise<QueryResult> {
-    const connection = await pool.getConnection();
+    let connection: PoolConnection | null = null;
+    let brokenConnection = false;
 
     try {
+      connection = await pool.getConnection();
+
       // Use the specified database
       await connection.query(`USE \`${database}\``);
 
@@ -140,16 +178,21 @@ export class QueryExecutor {
 
       return this.formatQueryResult(rows, fields);
     } catch (error) {
-      // Rollback on error
-      try {
-        await connection.rollback();
-      } catch (rollbackError) {
-        // Ignore rollback errors
+      brokenConnection = isFatalConnectionError(error);
+
+      // Best-effort rollback only if the socket is still alive
+      if (connection && !brokenConnection) {
+        try {
+          await connection.rollback();
+        } catch {
+          // If rollback fails the connection is unhealthy — don't reuse it
+          brokenConnection = true;
+        }
       }
 
       throw new Error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      connection.release();
+      safeReleaseConnection(connection, brokenConnection);
     }
   }
 
@@ -157,9 +200,12 @@ export class QueryExecutor {
    * Execute a write query (INSERT, UPDATE, DELETE, etc.) with normal transaction
    */
   private async executeWriteQuery(pool: Pool, database: string, sql: string): Promise<QueryResult> {
-    const connection = await pool.getConnection();
+    let connection: PoolConnection | null = null;
+    let brokenConnection = false;
 
     try {
+      connection = await pool.getConnection();
+
       // Use the specified database
       await connection.query(`USE \`${database}\``);
 
@@ -174,16 +220,19 @@ export class QueryExecutor {
 
       return this.formatWriteResult(result, fields);
     } catch (error) {
-      // Rollback on error
-      try {
-        await connection.rollback();
-      } catch (rollbackError) {
-        // Ignore rollback errors
+      brokenConnection = isFatalConnectionError(error);
+
+      if (connection && !brokenConnection) {
+        try {
+          await connection.rollback();
+        } catch {
+          brokenConnection = true;
+        }
       }
 
       throw new Error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      connection.release();
+      safeReleaseConnection(connection, brokenConnection);
     }
   }
 
@@ -253,9 +302,11 @@ export class QueryExecutor {
     }
 
     // Execute query
-    const conn = await pool.getConnection();
+    let conn: PoolConnection | null = null;
+    let brokenConnection = false;
 
     try {
+      conn = await pool.getConnection();
       await conn.query(`USE \`${database}\``);
       const [rows, fields] = await conn.query(sql);
 
@@ -274,9 +325,10 @@ export class QueryExecutor {
         return this.formatWriteResult(rows, fields as FieldPacket[]);
       }
     } catch (error) {
+      brokenConnection = isFatalConnectionError(error);
       throw new Error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      conn.release();
+      safeReleaseConnection(conn, brokenConnection);
     }
   }
 }
