@@ -13,12 +13,30 @@ import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
 
 export class McpServer {
-  private server: Server;
   private handlers: McpHandlers;
   private transports: Map<string, StreamableHTTPServerTransport> = new Map();
+  private servers: Map<string, Server> = new Map();
 
   constructor() {
-    this.server = new Server(
+    this.handlers = new McpHandlers();
+
+    // When the SessionManager evicts a stale/expired session, drop the paired
+    // HTTP transport and Server too — otherwise the next call from that
+    // client would reuse a transport whose session-level state has vanished,
+    // which is one of the ways the server appeared to "get stuck after a
+    // few queries".
+    getSessionManager().onSessionRemoved((sessionId) => {
+      this.disposeSession(sessionId);
+    });
+  }
+
+  /**
+   * Create a new MCP Server instance with handlers wired up. SDK 1.29+ rejects
+   * reusing one Server across multiple transports, so HTTP mode creates one
+   * per session and stdio mode creates one for its single connection.
+   */
+  private createServer(): Server {
+    const server = new Server(
       {
         name: 'mysql-mcp-webui',
         version: '1.0.0',
@@ -30,35 +48,33 @@ export class McpServer {
       }
     );
 
-    this.handlers = new McpHandlers();
-    this.setupHandlers();
-
-    // When the SessionManager evicts a stale/expired session, drop the paired
-    // HTTP transport too — otherwise the next call from that client would
-    // reuse a transport whose session-level state has vanished, which is one
-    // of the ways the server appeared to "get stuck after a few queries".
-    getSessionManager().onSessionRemoved((sessionId) => {
-      const transport = this.transports.get(sessionId);
-      if (transport) {
-        this.transports.delete(sessionId);
-        try { void transport.close(); } catch { /* ignore */ }
-      }
-    });
-  }
-
-  /**
-   * Setup MCP request handlers
-   */
-  private setupHandlers(): void {
-    // List Tools handler
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    server.setRequestHandler(ListToolsRequestSchema, async () => {
       return await this.handlers.handleListTools();
     });
 
-    // Call Tool handler
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return await this.handlers.handleCallTool(request);
     });
+
+    return server;
+  }
+
+  /**
+   * Tear down everything associated with a session: transport, Server, and
+   * SessionManager entry. Safe to call multiple times.
+   */
+  private disposeSession(sessionId: string): void {
+    const transport = this.transports.get(sessionId);
+    if (transport) {
+      this.transports.delete(sessionId);
+      try { void transport.close(); } catch { /* ignore */ }
+    }
+    const server = this.servers.get(sessionId);
+    if (server) {
+      this.servers.delete(sessionId);
+      try { void server.close(); } catch { /* ignore */ }
+    }
+    try { getSessionManager().deleteSession(sessionId); } catch { /* ignore */ }
   }
 
   /**
@@ -116,7 +132,8 @@ export class McpServer {
     this.handlers.setSession(null, 'stdio');
 
     const transport = new StdioServerTransport();
-    await this.server.connect(transport);
+    const server = this.createServer();
+    await server.connect(transport);
 
     console.error('MCP Server running on stdio transport');
   }
@@ -201,13 +218,17 @@ export class McpServer {
           });
           return;
         } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
-          // Create new transport for initialization request
+          // Create new transport AND a new Server for this session. SDK 1.29+
+          // rejects connecting the same Server to multiple transports, so
+          // each session gets its own pair.
           isNewTransport = true;
+          const sessionServer = this.createServer();
           transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (sessionId: string) => {
               console.error(`MCP session initialized with ID: ${sessionId}`);
               this.transports.set(sessionId, transport);
+              this.servers.set(sessionId, sessionServer);
               // Store response format for new session
               if (responseFormat) {
                 const sessionManager = getSessionManager();
@@ -216,23 +237,21 @@ export class McpServer {
             },
             onsessionclosed: (sessionId: string) => {
               console.error(`MCP session closed: ${sessionId}`);
-              this.transports.delete(sessionId);
-              try { getSessionManager().deleteSession(sessionId); } catch { /* ignore */ }
+              this.disposeSession(sessionId);
             },
           });
 
           // Set up onclose handler to clean up transport when closed
           transport.onclose = () => {
             const sid = transport.sessionId;
-            if (sid && this.transports.has(sid)) {
+            if (sid && (this.transports.has(sid) || this.servers.has(sid))) {
               console.error(`Transport closed for session ${sid}`);
-              this.transports.delete(sid);
-              try { getSessionManager().deleteSession(sid); } catch { /* ignore */ }
+              this.disposeSession(sid);
             }
           };
 
-          // Connect the transport to the MCP server
-          await this.server.connect(transport);
+          // Connect the per-session server to its transport
+          await sessionServer.connect(transport);
         } else {
           // Invalid request - no session ID or not initialization request
           res.status(400).json({
@@ -253,11 +272,9 @@ export class McpServer {
           await transport.handleRequest(req, res, req.body);
         } catch (handleError) {
           const sid = transport.sessionId;
-          if (sid && this.transports.has(sid)) {
+          if (sid && (this.transports.has(sid) || this.servers.has(sid))) {
             console.error(`Transport handleRequest failed for session ${sid}, evicting:`, handleError);
-            this.transports.delete(sid);
-            try { getSessionManager().deleteSession(sid); } catch { /* ignore */ }
-            try { await transport.close(); } catch { /* ignore */ }
+            this.disposeSession(sid);
           } else if (isNewTransport) {
             try { await transport.close(); } catch { /* ignore */ }
           }
@@ -283,17 +300,14 @@ export class McpServer {
 
 
   /**
-   * Get the underlying Server instance
-   */
-  getServer(): Server {
-    return this.server;
-  }
-
-  /**
-   * Close the MCP server
+   * Close every active per-session Server and transport. Called on process
+   * shutdown.
    */
   async close(): Promise<void> {
-    await this.server.close();
+    const sessionIds = Array.from(this.servers.keys());
+    for (const sid of sessionIds) {
+      this.disposeSession(sid);
+    }
   }
 }
 
